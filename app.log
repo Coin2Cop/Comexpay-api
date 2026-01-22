@@ -1,0 +1,54 @@
+
+> crossfit-wod-api@0.0.1 dev
+> nodemon ./src/index.js
+
+[33m[nodemon] 3.1.3[39m
+[33m[nodemon] to restart at any time, enter `rs`[39m
+[33m[nodemon] watching path(s): *.*[39m
+[33m[nodemon] watching extensions: js,mjs,cjs,json[39m
+[32m[nodemon] starting `node ./src/index.js`[39m
+/var/www/html/comexpay/api/src/files
+🚀 Server listening on port 3002
+📓 Version 1 Docs are available at http://localhost:3002/api/v1/docs
+
+  #  Node.js[2614503]: void node::ResetStdio() at ../src/node.cc:753
+  #  Assertion failed: !(err != 0) || (err == -1 && (*__errno_location ()) == 1)
+
+----- Native stack trace -----
+
+ 1: 0xcba0f7 node::Assert(node::AssertionInfo const&) [node]
+ 2: 0xc692a4  [node]
+ 3: 0x7f681b676495  [/lib/x86_64-linux-gnu/libc.so.6]
+ 4: 0x7f681b676610 on 2: 0xc692a4  [node]
+ 3: 0x7ff64215f495  [/lib/x86_64-linux-gnu/libc.so.6]
+ 4: 0x7ff64215f610 on_exit [/lib/x86_64-linux-gnu/libc.so.6]
+ 5: 0xbcd26f node::DefaultProcessExitHandlerInternal(node::Environment*, node::ExitCode) [node]
+ 6: 0xc2b45f node::Environment::Exit(node::ExitCode) [node]
+ 7: 0xf5596f v8::internal::FunctionCallbackArguments::Call(v8::internal::CallHandlerInfo) [node]
+ 8: 0xf561dd  [node]
+ 9: 0xf566a5 v8::internal::
+  #  Node.js[2614503]: void node::ResetStdio() at ../src/node.cc:753
+  #  Assertion failed: !(err != 0) || (err == -1 && (*__errno_location ()) == 1)
+
+----- Native stack trace -----
+
+ 1: 0xcba0f7 node::Assert(node::AssertionInfo const&) [node]
+ 2: 0xc692a4  [node]
+ 3: 0xc698bd node::TrapWebAssemblyOrContinue(int, siginfo_t*, void*) [node]
+ 4: 0x7f681b673520  [/lib/x86_64-linux-gnu/libc.so.6]
+ 5: 0x1590fd0 v8::internal::tracing::TraceEventHelper::GetTracingController() [node]
+ 6: 0x1067975 v8::internal::Isolate::CaptureDetailedStackTrace(int, v8::StackTrace::StackTraceOptions) [node]
+ 7: 0xef6290 v8::StackTrace::CurrentStackTrace(v8::Isolate*, int, v8::StackTrace::StackTraceOpti 7: 0xef6290 8: 0xcba056 node::GetCurrentStackTrace(v8::Isolate*, int) [node]
+ 9: 0xc0d79b node::DumpJavaScriptBacktrace(_IO_FILE*) [node]
+10: 0xcba103 node::Assert(node::AssertionInfo const&) [node]
+11: 0xc692a4  [node]
+12: 0x7f681b676495  [/lib/x86_64-linux-gnu/libc.so.6]
+13: 0x7f681b676610 on_exit [/lib/x86_64-linux-gnu/libc.so.6]
+14: 0xbcd26f node::DefaultProcessExitHandlerInternal(node::Environment*, node::ExitCode) [node]
+15: 0xc2b45f node::Environment::Exit(node::ExitCode) [node]
+16: 0xf5596f v8::internal::FunctionCallbackArguments::Call(v8::internal::CallHandlerInfo) [node]
+17: 0xf561dd  [node]
+18: 0xf566a5 v8::internal::Builtin_HandleApiCall(int, unsigned long*, v8::internal::Isolate*) [node]
+19: 0x1960df6  [node]
+Builtin_HandleApiCall(int, unsigned long*, v8::internal::Isolate*) [node]
+19: 0x1960df6  [node]

@@ -1,0 +1,1110 @@
+const userService = require("../services/userService");
+const temporalService = require("../services/temporalService");
+const User = require("../database/models/userModel");
+const userSchema = require("../database/models/userModel");
+const Temporal = require("../database/models/temporalModel");
+const crypto = require('crypto');
+//const transporter = require("../mail/transporter")
+const nodemailer = require('nodemailer');
+//const multer = require('multer');
+//const tf = require('@tensorflow/tfjs-node');
+//const blazeface = require('@tensorflow-models/blazeface');
+//const { createCanvas, Image } = require('canvas');
+//const fs = require('fs');
+const axios = require('axios');
+const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
+const jwt = require('jsonwebtoken');
+//const ffmpeg = require('fluent-ffmpeg');
+//ffmpeg.setFfmpegPath(ffmpegPath);
+//const path = require('path');
+const JWT_SECRET = process.env.JWT_SECRET
+
+//let model;
+
+// Cargar el modelo de BlazeFace
+/*(async () => {+
+    model = await blazeface.load();
+    console.log('Modelo cargado');
+})();*/
+
+
+
+const createNewUser = (req, res) => {
+    const { body } = req;
+  
+    if (
+      !body.name ||
+      !body.lastName ||
+      !body.email ||
+      !body.phone ||
+      !body.password
+    ) {
+      res.status(400).send({
+        status: "FAILED",
+        data: {
+          error:
+            "One of the following keys is missing or is empty in request body: 'name', 'lastname', 'email', 'phone', 'password'",
+        },
+      });
+    }
+    let passHash
+    const user = User
+    try{
+      user.find({email: body.email}).then((data) => {
+        if(data[0]){
+          res.status(201).send({ status: "OK", data: 0});
+          return
+        }else
+        crypto.pbkdf2(body.password, 'ddascvgrwfbntjklyl', 100000, 64, 'sha512', (err, derivedKey) => {
+          if (err) throw err;
+          // Printing the derived key
+          passHash = derivedKey.toString('hex');
+          const num = Math.floor((Math.random() * (9999 - 1000 + 1)) + 1000)
+          try {
+            const newUser = {
+              name: body.name,
+              lastName: body.lastName,
+              email: body.email,
+              phone: body.phone,
+              password: passHash,
+              emailCode: num,
+            };
+
+
+
+
+            const crearUser = userSchema(newUser);
+
+            crearUser
+            .save()
+            .then((data) => {
+
+              const transporter = nodemailer.createTransport({
+                host: process.env.MAIL_HOST,
+                port: process.env.MAIL_PORT,
+                auth: {
+                  user: process.env.MAIL_USERNAME,
+                  pass: process.env.MAIL_PASSWORD,
+                }
+              });
+              const mailOptions = {
+                from: process.env.EMAL_TO,
+                to: data.email,
+                subject: 'Verificar correo COMEXPAY',
+
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #dddddd; border-radius: 10px;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                    <img src="https://api.comexpay.co/recursos/logo.png" alt="COMEXPAY" style="max-width: 150px;">
+
+                    <svg id="imagen2" width="100%" height="39" viewBox="0 0 194 39" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path fill-rule="evenodd" clip-rule="evenodd" d="M15.2114 19.0587C16.5447 19.7601 17.1061 20.1306 17.0564 22.4368L17.0572 37.0268C17.0439 37.8529 16.4657 39.0921 15.1146 38.3429L1.22916 30.4539C0.279284 29.8591 -0.0280623 28.9828 0.00198019 28.4169L0.0809401 12.1617C0.0438195 11.7598 0.719697 10.7546 1.93131 11.4933L15.2115 19.0589L15.2114 19.0587Z" fill="#742ACE"></path>
+                      <path fill-rule="evenodd" clip-rule="evenodd" d="M20.6889 19.4845C19.3555 20.1859 18.7941 20.5562 18.8438 22.8626L18.8431 37.4525C18.8563 38.2787 19.4345 39.5178 20.7856 38.7687L34.6711 30.8797C35.6209 30.2849 35.9283 29.4085 35.8982 28.8427L35.8193 12.5875C35.8564 12.1856 35.1805 11.1804 33.9689 11.9191L20.6887 19.4847L20.6889 19.4845Z" fill="#742ACE"></path>
+                      <path fill-rule="evenodd" clip-rule="evenodd" d="M19.8967 0.687284C18.6134 -0.0994845 18.0072 -0.39309 16.0044 0.802402L3.17675 8.09667C2.45714 8.52104 1.65669 9.63379 2.99083 10.412L16.8697 18.3126C17.8675 18.8256 18.7916 18.6496 19.274 18.3411L33.526 10.1462C33.8978 9.97698 34.4439 8.89769 33.1886 8.23348L19.8969 0.687284H19.8967Z" fill="#742ACE"></path>
+                      <mask id="path-4-inside-1_737_1627" fill="white">
+                      <path d="M55.4097 17.7974C55.1157 16.5532 54.4902 15.5962 53.5332 14.9263C52.5762 14.2495 51.3628 13.9111 49.8931 13.9111C47.9038 13.9111 46.3384 14.4922 45.1968 15.6543C44.0552 16.8096 43.4844 18.3989 43.4844 20.4224C43.4844 22.3979 44.0381 23.9736 45.1455 25.1494C46.2529 26.3252 47.7363 26.9131 49.5957 26.9131C51.127 26.9131 52.4292 26.4995 53.5024 25.6724C54.5825 24.8384 55.2764 23.7173 55.584 22.3091H57.1938C56.8452 24.1821 55.9941 25.6655 54.6406 26.7593C53.2871 27.853 51.6191 28.3999 49.6367 28.3999C47.3057 28.3999 45.4395 27.6753 44.0381 26.2261C42.6436 24.7769 41.9463 22.8423 41.9463 20.4224C41.9463 17.9409 42.6538 15.9893 44.0688 14.5674C45.4839 13.1455 47.4321 12.4346 49.9136 12.4346C51.8687 12.4346 53.4683 12.9097 54.7124 13.8599C55.9565 14.8101 56.7017 16.1226 56.9478 17.7974H55.4097ZM74.9126 20.4224C74.9126 22.897 74.2017 24.8452 72.7798 26.2671C71.3579 27.689 69.4097 28.3999 66.9351 28.3999C64.4536 28.3999 62.5054 27.689 61.0903 26.2671C59.6753 24.8452 58.9678 22.897 58.9678 20.4224C58.9678 17.9409 59.6753 15.9893 61.0903 14.5674C62.5054 13.1455 64.4536 12.4346 66.9351 12.4346C69.4097 12.4346 71.3579 13.1455 72.7798 14.5674C74.2017 15.9893 74.9126 17.9409 74.9126 20.4224ZM66.9351 26.9336C68.938 26.9336 70.5068 26.356 71.6416 25.2007C72.7832 24.0454 73.354 22.4526 73.354 20.4224C73.354 18.3853 72.7832 16.7925 71.6416 15.644C70.5068 14.4888 68.938 13.9111 66.9351 13.9111C64.9253 13.9111 63.3496 14.4888 62.208 15.644C61.0732 16.7925 60.5059 18.3853 60.5059 20.4224C60.5059 22.4526 61.0732 24.0454 62.208 25.2007C63.3496 26.356 64.9253 26.9336 66.9351 26.9336ZM77.7734 28V12.8345H80.1934L86.5918 26.5952L93.0825 12.8345H95.3076V28H93.8208L93.8823 14.1367L87.4531 28H85.71L79.1167 14.1367L79.2705 28H77.7734ZM98.8965 28V12.8345H110.555V14.2495H100.414V19.561H109.776V20.9863H100.414V26.5747H110.555V28H98.8965ZM111.693 28L117.917 20.207L112.134 12.8345H114.072L118.922 19.1816L123.793 12.8345H125.68L119.784 20.1865L125.977 28H123.998L118.861 21.2427L113.672 28H111.693ZM129.433 20.3096H133.821C135.428 20.3096 136.539 20.084 137.154 19.6328C137.769 19.1816 138.077 18.4023 138.077 17.2949C138.077 16.1738 137.766 15.3877 137.144 14.9365C136.528 14.4785 135.421 14.2495 133.821 14.2495H129.433V20.3096ZM127.915 28V12.8345H134.088C135.981 12.8345 137.386 13.2036 138.302 13.9419C139.218 14.6733 139.676 15.7979 139.676 17.3154C139.676 18.8262 139.218 19.9507 138.302 20.689C137.386 21.4204 135.981 21.7861 134.088 21.7861H129.433V28H127.915ZM143.275 21.8477H150.228L146.762 14.0957L143.275 21.8477ZM138.907 28L145.9 12.8345H147.644L154.555 28H153.027L150.904 23.314H142.609L140.466 28H138.907ZM160.01 28V21.4478L153.478 12.8345H155.406L160.758 20.2275L166.183 12.8345H168.049L161.517 21.4478V28H160.01Z"></path>
+                      </mask>
+                      <path d="M55.4097 17.7974C55.1157 16.5532 54.4902 15.5962 53.5332 14.9263C52.5762 14.2495 51.3628 13.9111 49.8931 13.9111C47.9038 13.9111 46.3384 14.4922 45.1968 15.6543C44.0552 16.8096 43.4844 18.3989 43.4844 20.4224C43.4844 22.3979 44.0381 23.9736 45.1455 25.1494C46.2529 26.3252 47.7363 26.9131 49.5957 26.9131C51.127 26.9131 52.4292 26.4995 53.5024 25.6724C54.5825 24.8384 55.2764 23.7173 55.584 22.3091H57.1938C56.8452 24.1821 55.9941 25.6655 54.6406 26.7593C53.2871 27.853 51.6191 28.3999 49.6367 28.3999C47.3057 28.3999 45.4395 27.6753 44.0381 26.2261C42.6436 24.7769 41.9463 22.8423 41.9463 20.4224C41.9463 17.9409 42.6538 15.9893 44.0688 14.5674C45.4839 13.1455 47.4321 12.4346 49.9136 12.4346C51.8687 12.4346 53.4683 12.9097 54.7124 13.8599C55.9565 14.8101 56.7017 16.1226 56.9478 17.7974H55.4097ZM74.9126 20.4224C74.9126 22.897 74.2017 24.8452 72.7798 26.2671C71.3579 27.689 69.4097 28.3999 66.9351 28.3999C64.4536 28.3999 62.5054 27.689 61.0903 26.2671C59.6753 24.8452 58.9678 22.897 58.9678 20.4224C58.9678 17.9409 59.6753 15.9893 61.0903 14.5674C62.5054 13.1455 64.4536 12.4346 66.9351 12.4346C69.4097 12.4346 71.3579 13.1455 72.7798 14.5674C74.2017 15.9893 74.9126 17.9409 74.9126 20.4224ZM66.9351 26.9336C68.938 26.9336 70.5068 26.356 71.6416 25.2007C72.7832 24.0454 73.354 22.4526 73.354 20.4224C73.354 18.3853 72.7832 16.7925 71.6416 15.644C70.5068 14.4888 68.938 13.9111 66.9351 13.9111C64.9253 13.9111 63.3496 14.4888 62.208 15.644C61.0732 16.7925 60.5059 18.3853 60.5059 20.4224C60.5059 22.4526 61.0732 24.0454 62.208 25.2007C63.3496 26.356 64.9253 26.9336 66.9351 26.9336ZM77.7734 28V12.8345H80.1934L86.5918 26.5952L93.0825 12.8345H95.3076V28H93.8208L93.8823 14.1367L87.4531 28H85.71L79.1167 14.1367L79.2705 28H77.7734ZM98.8965 28V12.8345H110.555V14.2495H100.414V19.561H109.776V20.9863H100.414V26.5747H110.555V28H98.8965ZM111.693 28L117.917 20.207L112.134 12.8345H114.072L118.922 19.1816L123.793 12.8345H125.68L119.784 20.1865L125.977 28H123.998L118.861 21.2427L113.672 28H111.693ZM129.433 20.3096H133.821C135.428 20.3096 136.539 20.084 137.154 19.6328C137.769 19.1816 138.077 18.4023 138.077 17.2949C138.077 16.1738 137.766 15.3877 137.144 14.9365C136.528 14.4785 135.421 14.2495 133.821 14.2495H129.433V20.3096ZM127.915 28V12.8345H134.088C135.981 12.8345 137.386 13.2036 138.302 13.9419C139.218 14.6733 139.676 15.7979 139.676 17.3154C139.676 18.8262 139.218 19.9507 138.302 20.689C137.386 21.4204 135.981 21.7861 134.088 21.7861H129.433V28H127.915ZM143.275 21.8477H150.228L146.762 14.0957L143.275 21.8477ZM138.907 28L145.9 12.8345H147.644L154.555 28H153.027L150.904 23.314H142.609L140.466 28H138.907ZM160.01 28V21.4478L153.478 12.8345H155.406L160.758 20.2275L166.183 12.8345H168.049L161.517 21.4478V28H160.01Z" fill="#742ACE"></path>
+                      <path d="M55.4097 17.7974L54.4365 18.0273L54.6184 18.7974H55.4097V17.7974ZM53.5332 14.9263L52.9558 15.7428L52.9597 15.7455L53.5332 14.9263ZM45.1968 15.6543L45.9081 16.3572L45.9102 16.3551L45.1968 15.6543ZM53.5024 25.6724L54.1129 26.4644L54.1136 26.4639L53.5024 25.6724ZM55.584 22.3091V21.3091H54.7788L54.607 22.0957L55.584 22.3091ZM57.1938 22.3091L58.177 22.4921L58.3972 21.3091H57.1938V22.3091ZM44.0381 26.2261L43.3175 26.9195L43.3192 26.9212L44.0381 26.2261ZM56.9478 17.7974V18.7974H58.1054L57.9371 17.652L56.9478 17.7974ZM56.3829 17.5674C56.0383 16.1088 55.2843 14.9314 54.1067 14.107L52.9597 15.7455C53.6961 16.261 54.1932 16.9976 54.4365 18.0273L56.3829 17.5674ZM54.1106 14.1098C52.9461 13.2864 51.5167 12.9111 49.8931 12.9111V14.9111C51.2089 14.9111 52.2062 15.2127 52.9558 15.7428L54.1106 14.1098ZM49.8931 12.9111C47.6988 12.9111 45.8532 13.5591 44.4834 14.9535L45.9102 16.3551C46.8236 15.4253 48.1088 14.9111 49.8931 14.9111V12.9111ZM44.4855 14.9514C43.1159 16.3374 42.4844 18.2041 42.4844 20.4224H44.4844C44.4844 18.5938 44.9945 17.2817 45.9081 16.3572L44.4855 14.9514ZM42.4844 20.4224C42.4844 22.5929 43.0982 24.4343 44.4176 25.835L45.8735 24.4638C44.9779 23.513 44.4844 22.203 44.4844 20.4224H42.4844ZM44.4176 25.835C45.7431 27.2424 47.5063 27.9131 49.5957 27.9131V25.9131C47.9663 25.9131 46.7628 25.408 45.8735 24.4638L44.4176 25.835ZM49.5957 27.9131C51.3176 27.9131 52.8422 27.4437 54.1129 26.4644L52.892 24.8803C52.0162 25.5553 50.9363 25.9131 49.5957 25.9131V27.9131ZM54.1136 26.4639C55.3908 25.4777 56.2062 24.1464 56.5609 22.5225L54.607 22.0957C54.3465 23.2882 53.7742 24.1991 52.8913 24.8809L54.1136 26.4639ZM55.584 23.3091H57.1938V21.3091H55.584V23.3091ZM56.2107 22.1261C55.9012 23.7888 55.1623 25.052 54.0121 25.9815L55.2691 27.5371C56.826 26.279 57.7892 24.5754 58.177 22.4921L56.2107 22.1261ZM54.0121 25.9815C52.861 26.9117 51.424 27.3999 49.6367 27.3999V29.3999C51.8143 29.3999 53.7132 28.7944 55.2691 27.5371L54.0121 25.9815ZM49.6367 27.3999C47.5306 27.3999 45.9401 26.7545 44.757 25.5309L43.3192 26.9212C44.9388 28.5961 47.0807 29.3999 49.6367 29.3999V27.3999ZM44.7587 25.5327C43.5787 24.3065 42.9463 22.6396 42.9463 20.4224H40.9463C40.9463 23.045 41.7084 25.2472 43.3175 26.9195L44.7587 25.5327ZM42.9463 20.4224C42.9463 18.1389 43.5912 16.465 44.7777 15.2728L43.36 13.862C41.7164 15.5136 40.9463 17.7429 40.9463 20.4224H42.9463ZM44.7777 15.2728C45.9626 14.0821 47.6313 13.4346 49.9136 13.4346V11.4346C47.233 11.4346 45.0052 12.2089 43.36 13.862L44.7777 15.2728ZM49.9136 13.4346C51.7048 13.4346 53.0751 13.8677 54.1054 14.6546L55.3194 13.0651C53.8614 11.9516 52.0325 11.4346 49.9136 11.4346V13.4346ZM54.1054 14.6546C55.1245 15.4329 55.7468 16.5029 55.9584 17.9427L57.9371 17.652C57.6565 15.7422 56.7886 14.1872 55.3194 13.0651L54.1054 14.6546ZM56.9478 16.7974H55.4097V18.7974H56.9478V16.7974ZM71.6416 25.2007L70.9303 24.4978L70.9282 24.4999L71.6416 25.2007ZM71.6416 15.644L70.9282 16.3448L70.9324 16.349L71.6416 15.644ZM62.208 15.644L61.4967 14.9412L61.4967 14.9412L62.208 15.644ZM62.208 25.2007L61.4946 25.9014L61.4967 25.9036L62.208 25.2007ZM73.9126 20.4224C73.9126 22.6967 73.2656 24.3671 72.0727 25.56L73.4869 26.9742C75.1377 25.3234 75.9126 23.0972 75.9126 20.4224H73.9126ZM72.0727 25.56C70.8797 26.7529 69.2094 27.3999 66.9351 27.3999V29.3999C69.6099 29.3999 71.8361 28.625 73.4869 26.9742L72.0727 25.56ZM66.9351 27.3999C64.6528 27.3999 62.9841 26.7523 61.7991 25.5617L60.3815 26.9725C62.0267 28.6256 64.2544 29.3999 66.9351 29.3999V27.3999ZM61.7991 25.5617C60.6122 24.369 59.9678 22.6981 59.9678 20.4224H57.9678C57.9678 23.0959 58.7384 25.3214 60.3815 26.9725L61.7991 25.5617ZM59.9678 20.4224C59.9678 18.1389 60.6127 16.465 61.7991 15.2728L60.3815 13.862C58.7379 15.5136 57.9678 17.7429 57.9678 20.4224H59.9678ZM61.7991 15.2728C62.9841 14.0821 64.6528 13.4346 66.9351 13.4346V11.4346C64.2544 11.4346 62.0267 12.2089 60.3815 13.862L61.7991 15.2728ZM66.9351 13.4346C69.2094 13.4346 70.8797 14.0816 72.0727 15.2745L73.4869 13.8603C71.8361 12.2095 69.6099 11.4346 66.9351 11.4346V13.4346ZM72.0727 15.2745C73.2651 16.4669 73.9126 18.1403 73.9126 20.4224H75.9126C75.9126 17.7415 75.1382 15.5116 73.4869 13.8603L72.0727 15.2745ZM66.9351 27.9336C69.1388 27.9336 70.9896 27.2915 72.355 25.9014L70.9282 24.4999C70.024 25.4204 68.7372 25.9336 66.9351 25.9336V27.9336ZM72.3529 25.9036C73.7231 24.517 74.354 22.6464 74.354 20.4224H72.354C72.354 22.2589 71.8433 23.5739 70.9303 24.4978L72.3529 25.9036ZM74.354 20.4224C74.354 18.1928 73.7238 16.3203 72.3508 14.9391L70.9324 16.349C71.8426 17.2647 72.354 18.5777 72.354 20.4224H74.354ZM72.355 14.9433C70.9896 13.5533 69.1388 12.9111 66.9351 12.9111V14.9111C68.7372 14.9111 70.024 15.4243 70.9282 16.3448L72.355 14.9433ZM66.9351 12.9111C64.7254 12.9111 62.8688 13.5527 61.4967 14.9412L62.9193 16.3469C63.8305 15.4249 65.1252 14.9111 66.9351 14.9111V12.9111ZM61.4967 14.9412C60.1316 16.3227 59.5059 18.1945 59.5059 20.4224H61.5059C61.5059 18.576 62.0148 17.2623 62.9193 16.3469L61.4967 14.9412ZM59.5059 20.4224C59.5059 22.6448 60.1323 24.5145 61.4946 25.9014L62.9214 24.4999C62.0141 23.5763 61.5059 22.2605 61.5059 20.4224H59.5059ZM61.4967 25.9036C62.8688 27.2921 64.7254 27.9336 66.9351 27.9336V25.9336C65.1252 25.9336 63.8305 25.4199 62.9193 24.4978L61.4967 25.9036ZM77.7734 28H76.7734V29H77.7734V28ZM77.7734 12.8345V11.8345H76.7734V12.8345H77.7734ZM80.1934 12.8345L81.1001 12.4128L80.8312 11.8345H80.1934V12.8345ZM86.5918 26.5952L85.685 27.0168L86.5853 28.953L87.4962 27.0218L86.5918 26.5952ZM93.0825 12.8345V11.8345H92.4485L92.1781 12.4079L93.0825 12.8345ZM95.3076 12.8345H96.3076V11.8345H95.3076V12.8345ZM95.3076 28V29H96.3076V28H95.3076ZM93.8208 28L92.8208 27.9956L92.8164 29H93.8208V28ZM93.8823 14.1367L94.8823 14.1412L92.9751 13.716L93.8823 14.1367ZM87.4531 28V29H88.0917L88.3603 28.4207L87.4531 28ZM85.71 28L84.8069 28.4295L85.0782 29H85.71V28ZM79.1167 14.1367L80.0198 13.7072L78.1168 14.1478L79.1167 14.1367ZM79.2705 28V29H80.2817L80.2704 27.9889L79.2705 28ZM78.7734 28V12.8345H76.7734V28H78.7734ZM77.7734 13.8345H80.1934V11.8345H77.7734V13.8345ZM79.2866 13.2561L85.685 27.0168L87.4986 26.1736L81.1001 12.4128L79.2866 13.2561ZM87.4962 27.0218L93.987 13.2611L92.1781 12.4079L85.6874 26.1686L87.4962 27.0218ZM93.0825 13.8345H95.3076V11.8345H93.0825V13.8345ZM94.3076 12.8345V28H96.3076V12.8345H94.3076ZM95.3076 27H93.8208V29H95.3076V27ZM94.8208 28.0044L94.8823 14.1412L92.8823 14.1323L92.8208 27.9956L94.8208 28.0044ZM92.9751 13.716L86.5459 27.5793L88.3603 28.4207L94.7895 14.5574L92.9751 13.716ZM87.4531 27H85.71V29H87.4531V27ZM86.613 27.5705L80.0198 13.7072L78.2136 14.5662L84.8069 28.4295L86.613 27.5705ZM78.1168 14.1478L78.2706 28.0111L80.2704 27.9889L80.1166 14.1256L78.1168 14.1478ZM79.2705 27H77.7734V29H79.2705V27ZM98.8965 28H97.8965V29H98.8965V28ZM98.8965 12.8345V11.8345H97.8965V12.8345H98.8965ZM110.555 12.8345H111.555V11.8345H110.555V12.8345ZM110.555 14.2495V15.2495H111.555V14.2495H110.555ZM100.414 14.2495V13.2495H99.4141V14.2495H100.414ZM100.414 19.561H99.4141V20.561H100.414V19.561ZM109.776 19.561H110.776V18.561H109.776V19.561ZM109.776 20.9863V21.9863H110.776V20.9863H109.776ZM100.414 20.9863V19.9863H99.4141V20.9863H100.414ZM100.414 26.5747H99.4141V27.5747H100.414V26.5747ZM110.555 26.5747H111.555V25.5747H110.555V26.5747ZM110.555 28V29H111.555V28H110.555ZM99.8965 28V12.8345H97.8965V28H99.8965ZM98.8965 13.8345H110.555V11.8345H98.8965V13.8345ZM109.555 12.8345V14.2495H111.555V12.8345H109.555ZM110.555 13.2495H100.414V15.2495H110.555V13.2495ZM99.4141 14.2495V19.561H101.414V14.2495H99.4141ZM100.414 20.561H109.776V18.561H100.414V20.561ZM108.776 19.561V20.9863H110.776V19.561H108.776ZM109.776 19.9863H100.414V21.9863H109.776V19.9863ZM99.4141 20.9863V26.5747H101.414V20.9863H99.4141ZM100.414 27.5747H110.555V25.5747H100.414V27.5747ZM109.555 26.5747V28H111.555V26.5747H109.555ZM110.555 27H98.8965V29H110.555V27ZM111.693 28L110.912 27.3759L109.615 29H111.693V28ZM117.917 20.207L118.699 20.8311L119.193 20.2126L118.704 19.5898L117.917 20.207ZM112.134 12.8345V11.8345H110.079L111.347 13.4517L112.134 12.8345ZM114.072 12.8345L114.867 12.2273L114.567 11.8345H114.072V12.8345ZM118.922 19.1816L118.128 19.7888L118.921 20.8264L119.716 19.7904L118.922 19.1816ZM123.793 12.8345V11.8345H123.3L123 12.2257L123.793 12.8345ZM125.68 12.8345L126.46 13.4601L127.763 11.8345H125.68V12.8345ZM119.784 20.1865L119.004 19.5609L118.505 20.1829L119 20.8077L119.784 20.1865ZM125.977 28V29H128.046L126.761 27.3788L125.977 28ZM123.998 28L123.202 28.6052L123.502 29H123.998V28ZM118.861 21.2427L119.657 20.6375L118.865 19.5955L118.068 20.6337L118.861 21.2427ZM113.672 28V29H114.165L114.466 28.609L113.672 28ZM112.475 28.6241L118.699 20.8311L117.136 19.583L110.912 27.3759L112.475 28.6241ZM118.704 19.5898L112.921 12.2173L111.347 13.4517L117.131 20.8242L118.704 19.5898ZM112.134 13.8345H114.072V11.8345H112.134V13.8345ZM113.278 13.4416L118.128 19.7888L119.717 18.5745L114.867 12.2273L113.278 13.4416ZM119.716 19.7904L124.586 13.4433L123 12.2257L118.129 18.5729L119.716 19.7904ZM123.793 13.8345H125.68V11.8345H123.793V13.8345ZM124.9 12.2088L119.004 19.5609L120.564 20.8121L126.46 13.4601L124.9 12.2088ZM119 20.8077L125.193 28.6212L126.761 27.3788L120.567 19.5653L119 20.8077ZM125.977 27H123.998V29H125.977V27ZM124.794 27.3948L119.657 20.6375L118.065 21.8479L123.202 28.6052L124.794 27.3948ZM118.068 20.6337L112.879 27.391L114.466 28.609L119.654 21.8517L118.068 20.6337ZM113.672 27H111.693V29H113.672V27ZM129.433 20.3096H128.433V21.3096H129.433V20.3096ZM137.144 14.9365L136.546 15.7387L136.556 15.746L137.144 14.9365ZM129.433 14.2495V13.2495H128.433V14.2495H129.433ZM127.915 28H126.915V29H127.915V28ZM127.915 12.8345V11.8345H126.915V12.8345H127.915ZM138.302 13.9419L137.675 14.7205L137.678 14.7233L138.302 13.9419ZM138.302 20.689L138.926 21.4704L138.93 21.4676L138.302 20.689ZM129.433 21.7861V20.7861H128.433V21.7861H129.433ZM129.433 28V29H130.433V28H129.433ZM129.433 21.3096H133.821V19.3096H129.433V21.3096ZM133.821 21.3096C135.449 21.3096 136.851 21.0952 137.745 20.4392L136.562 18.8264C136.226 19.0728 135.406 19.3096 133.821 19.3096V21.3096ZM137.745 20.4392C138.719 19.7251 139.077 18.5692 139.077 17.2949H137.077C137.077 18.2355 136.819 18.6382 136.562 18.8264L137.745 20.4392ZM139.077 17.2949C139.077 16.0085 138.716 14.8418 137.731 14.127L136.556 15.746C136.815 15.9336 137.077 16.3392 137.077 17.2949H139.077ZM137.741 14.1344C136.845 13.4678 135.445 13.2495 133.821 13.2495V15.2495C135.397 15.2495 136.211 15.4892 136.546 15.7387L137.741 14.1344ZM133.821 13.2495H129.433V15.2495H133.821V13.2495ZM128.433 14.2495V20.3096H130.433V14.2495H128.433ZM128.915 28V12.8345H126.915V28H128.915ZM127.915 13.8345H134.088V11.8345H127.915V13.8345ZM134.088 13.8345C135.883 13.8345 137.016 14.1899 137.675 14.7205L138.93 13.1633C137.756 12.2174 136.08 11.8345 134.088 11.8345V13.8345ZM137.678 14.7233C138.29 15.2117 138.676 16.0049 138.676 17.3154H140.676C140.676 15.5908 140.147 14.1349 138.926 13.1605L137.678 14.7233ZM138.676 17.3154C138.676 18.6169 138.291 19.4136 137.675 19.9104L138.93 21.4676C140.145 20.4878 140.676 19.0354 140.676 17.3154H138.676ZM137.678 19.9075C137.019 20.4336 135.884 20.7861 134.088 20.7861V22.7861C136.079 22.7861 137.753 22.4072 138.926 21.4704L137.678 19.9075ZM134.088 20.7861H129.433V22.7861H134.088V20.7861ZM128.433 21.7861V28H130.433V21.7861H128.433ZM129.433 27H127.915V29H129.433V27ZM143.275 21.8477L142.363 21.4375L141.729 22.8477H143.275V21.8477ZM150.228 21.8477V22.8477H151.77L151.14 21.4395L150.228 21.8477ZM146.762 14.0957L147.675 13.6875L146.764 11.6517L145.85 13.6855L146.762 14.0957ZM138.907 28L137.999 27.5813L137.345 29H138.907V28ZM145.9 12.8345V11.8345H145.26L144.992 12.4157L145.9 12.8345ZM147.644 12.8345L148.554 12.4198L148.287 11.8345H147.644V12.8345ZM154.555 28V29H156.109L155.465 27.5853L154.555 28ZM153.027 28L152.116 28.4126L152.382 29H153.027V28ZM150.904 23.314L151.815 22.9014L151.549 22.314H150.904V23.314ZM142.609 23.314V22.314H141.967L141.699 22.8981L142.609 23.314ZM140.466 28V29H141.108L141.375 28.4159L140.466 28ZM143.275 22.8477H150.228V20.8477H143.275V22.8477ZM151.14 21.4395L147.675 13.6875L145.849 14.5039L149.315 22.2558L151.14 21.4395ZM145.85 13.6855L142.363 21.4375L144.187 22.2578L147.674 14.5059L145.85 13.6855ZM139.815 28.4187L146.808 13.2532L144.992 12.4157L137.999 27.5813L139.815 28.4187ZM145.9 13.8345H147.644V11.8345H145.9V13.8345ZM146.734 13.2492L153.645 28.4147L155.465 27.5853L148.554 12.4198L146.734 13.2492ZM154.555 27H153.027V29H154.555V27ZM153.938 27.5874L151.815 22.9014L149.993 23.7266L152.116 28.4126L153.938 27.5874ZM150.904 22.314H142.609V24.314H150.904V22.314ZM141.699 22.8981L139.556 27.5841L141.375 28.4159L143.518 23.7299L141.699 22.8981ZM140.466 27H138.907V29H140.466V27ZM160.01 28H159.01V29H160.01V28ZM160.01 21.4478H161.01V21.1115L160.807 20.8435L160.01 21.4478ZM153.478 12.8345V11.8345H151.465L152.681 13.4387L153.478 12.8345ZM155.406 12.8345L156.216 12.248L155.916 11.8345H155.406V12.8345ZM160.758 20.2275L159.948 20.814L160.753 21.9253L161.565 20.8191L160.758 20.2275ZM166.183 12.8345V11.8345H165.676L165.376 12.2429L166.183 12.8345ZM168.049 12.8345L168.846 13.4387L170.062 11.8345H168.049V12.8345ZM161.517 21.4478L160.72 20.8435L160.517 21.1115V21.4478H161.517ZM161.517 28V29H162.517V28H161.517ZM161.01 28V21.4478H159.01V28H161.01ZM160.807 20.8435L154.275 12.2302L152.681 13.4387L159.213 22.052L160.807 20.8435ZM153.478 13.8345H155.406V11.8345H153.478V13.8345ZM154.596 13.4209L159.948 20.814L161.568 19.6411L156.216 12.248L154.596 13.4209ZM161.565 20.8191L166.989 13.426L165.376 12.2429L159.952 19.636L161.565 20.8191ZM166.183 13.8345H168.049V11.8345H166.183V13.8345ZM167.252 12.2302L160.72 20.8435L162.314 22.052L168.846 13.4387L167.252 12.2302ZM160.517 21.4478V28H162.517V21.4478H160.517ZM161.517 27H160.01V29H161.517V27Z" fill="#742ACE" mask="url(#path-4-inside-1_737_1627)"></path>
+                    </svg>
+                    </div>
+                    <p style="color: #555555;">Hola! `+data.name+`</p>
+                    <p style="color: #555555;">Bienvenido al ecosistema COMEXPAY, donde Revolucionamos los pagos en operaciones de comercio exterior, facilitando un océano de soluciones para tus negocios internacionales. Aquí esta tu código de verificación:</p>
+                    <h2 style="color: #555555;">`+data.emailCode+`</h2>
+
+
+                    <p style="color: #555555;">si requieres soporte ponte en contacto con nosotros por medio de nuestro <a href="https://comexpay.co" style="color:rgb(119, 0, 155);"> chat.</a></p>
+                  </div>
+                `
+              };
+      
+              transporter.sendMail(mailOptions, function(err, data) {
+                if (err) {
+                  console.log("Error " + err);
+                } else {
+                  console.log("Email sent successfully");
+                }
+              });
+
+
+
+              
+
+
+
+
+              res.status(201).send({ status: "OK", data: data });
+            })
+            .catch((error) => error);
+
+
+
+
+
+            //const createduser = userService.createNewUser(newUser);
+            //console.log(createduser.email)
+    
+    
+            /*const transporter = nodemailer.createTransport({
+              service: 'gmail',
+              auth: {
+                type: 'OAuth2',
+                user: process.env.MAIL_USERNAME,
+                pass: process.env.MAIL_PASSWORD,
+                clientId: process.env.OAUTH_CLIENTID,
+                clientSecret: process.env.OAUTH_CLIENT_SECRET,
+                refreshToken: process.env.OAUTH_REFRESH_TOKEN
+              }
+            });
+        
+        
+                email = 'josemanuelguerreroduarte@gmail.com'
+                to = 'josemanuelguerreroduarte@gmail.com'
+                const mailOptions = {
+                  from: createduser.email,
+                  to: process.env.EMAL_TO,
+                  subject: 'Verificar correo COMEXPAY',
+                  text: 'Entra a este link para verificar tu correo '+process.env.URL_VERIFICAR_CELULAR+'?'+createduser._id
+                };
+        
+                transporter.sendMail(mailOptions, function(err, data) {
+                  if (err) {
+                    console.log("Error " + err);
+                  } else {
+                    console.log("Email sent successfully");
+                  }
+                });*/
+    
+    
+    
+            //res.status(201).send({ status: "OK", data: crearUser.data });
+          } catch (error) {
+            res
+              .status(error?.status || 500)
+              .send({ status: "FAILDED", data: { error: error?.message || error } });
+          }
+       });
+      }).catch((error) => {
+        res.status(401).send({ status: "FAILED", data: [] })
+      });
+
+    } catch (error) {
+      res
+        .status(error?.status || 500)
+        .send({ status: "FAILDED", data: { error: error?.message || error } });
+    }
+
+};
+
+
+const getuser = (req, res) => {
+  const { body } = req;
+  if (
+    !body.email ||
+    !body.password
+  ) {
+    res.status(400).send({
+      status: "FAILED",
+      data: {
+        error:
+          "One of the following keys is missing or is empty in request body: 'password', 'password'",
+      },
+    });
+  }
+  crypto.pbkdf2(body.password, 'ddascvgrwfbntjklyl', 100000, 64, 'sha512', (err, derivedKey) => {
+    if (err) throw err;
+    // Printing the derived key
+    passHash = derivedKey.toString('hex');
+    const user = User;
+    try{
+      user.find({email: body.email}).then((data) => {
+        if(data[0].password == passHash){
+          if(data[0].emailVerifi == false){
+
+            const token = jwt.sign(
+              {
+                id: data[0]._id,
+              },
+              JWT_SECRET,
+              { expiresIn: '1y' } // Token válido por 1 hora
+            );
+    
+            res.cookie("token", token, {
+              domain: ".comexpay.co",
+              sameSite: "Lax",
+              secure: true, // Cambiar a true si usas HTTPS
+              maxAge: 365 * 24 * 60 * 60 * 1000, // 1 año en milisegundos
+              httpOnly: false,
+            }).send({ status: "OK", data: data[0], veri: 0});
+
+
+
+            //res.status(201).send({ status: "OK", veri: 0});
+
+          }else{
+            const token = jwt.sign(
+              {
+                id: data[0]._id,
+              },
+              JWT_SECRET,
+              { expiresIn: '1y' } // Token válido por 1 hora
+            );
+    
+            res.cookie("token", token, {
+              domain: ".comexpay.co",
+              sameSite: "Lax",
+              secure: true, // Cambiar a true si usas HTTPS
+              maxAge: 365 * 24 * 60 * 60 * 1000, // 1 año en milisegundos
+              httpOnly: false,
+            }).send({ status: "OK", data: data[0], veri: 1});
+          }
+        }else
+          res.status(201).send({status: "OK", data:[]})
+      }).catch((error) => {
+        res.status(401).send({ status: "FAILED", data: [] })
+      });
+
+    } catch (error) {
+      res
+        .status(error?.status || 500)
+        .send({ status: "FAILDED", data: { error: error?.message || error } });
+    }
+  });
+}
+const getuserById = (req, res) => {
+  const { body } = req;
+  if (
+    !body.idUser
+  ) {
+    res.status(400).send({
+      status: "FAILED",
+      data: {
+        error:
+          "One of the following keys is missing or is empty in request body: 'password', 'password'",
+      },
+    });
+  }
+  const user = User;
+  try{
+    user.find({_id: body.idUser}).then((data) => {
+      res.status(201).send({ status: "OK", data: data});
+    }).catch((error) => {
+      res.status(401).send({ status: "FAILED", data: [] })
+    });
+  } catch (error)  {
+    res
+      .status(error?.status || 500)
+      .send({ status: "FAILDED", data: { error: error?.message || error } });
+  }
+}
+
+const getuserAll = (req, res) => {
+  const cantidad = req.params.cantidad
+  const indice = req.params.indice
+  const user = User;
+  if(req.query.busqueda){
+    let busqueda = req.query.busqueda
+    console.log(busqueda)
+    try{
+      user.find({
+        $or: [
+          { name: new RegExp(busqueda)},
+          { lastName: new RegExp(busqueda)},
+          { email: new RegExp(busqueda)},
+          { phone: new RegExp(busqueda)}
+        ]
+      }).sort({ _id: -1 }).skip(indice).limit(cantidad).then((data) => {
+        res.status(201).send({ status: "OK", data: data});
+      }).catch((error) => {
+        res.status(401).send({ status: "FAILED", data: [] })
+      });
+    } catch (error) {
+      res
+        .status(error?.status || 500)
+        .send({ status: "FAILDED", data: { error: error?.message || error } });
+    }
+  }else{
+    try{
+      user.find({}).sort({ _id: -1 }).skip(indice).limit(cantidad).then((data) => {
+        res.status(201).send({ status: "OK", data: data});
+      }).catch((error) => {
+        res.status(401).send({ status: "FAILED", data: [] })
+      });
+    } catch (error) {
+      res
+        .status(error?.status || 500)
+        .send({ status: "FAILDED", data: { error: error?.message || error } });
+    }
+  }
+}
+
+
+const veriNumero = (req, res) => {
+  const { body } = req;
+  if (
+    !body.id ||
+    !body.codigo
+  ) {
+    res.status(400).send({
+      status: "FAILED",
+      data: {
+        error:
+          "One of the following keys is missing or is empty in request body: 'id', 'codigo'",
+      },
+    });
+  }
+  const user = User;
+  try{
+    user.find({_id: body.id}).then((data) => {
+      if(data[0].phoneCode == body.codigo){
+        user.findOneAndUpdate(
+          { _id: body.id },
+          { $set: {phoneVerifi: true} },
+          { new: true }
+        ).then((data) => {
+
+
+          const token = jwt.sign(
+            {
+              id: data._id,
+            },
+            JWT_SECRET,
+            { expiresIn: '1y' } // Token válido por 1 hora
+          );
+  
+          res.cookie("token", token, {
+            domain: ".comexpay.co",
+            sameSite: "Lax",
+            secure: true, // Cambiar a true si usas HTTPS
+            maxAge: 365 * 24 * 60 * 60 * 1000, // 1 año en milisegundos
+            httpOnly: false,
+          }).send({ status: "OK", data: data });
+
+
+
+          //res.status(201).send({ status: "OK", data: data});
+        }).catch((error) => error);
+      }else
+        res.status(201).send({status: "OK", data:[]})
+    }).catch((error) => {
+      res.status(401).send({ status: "FAILED", data: [] })
+    });
+
+  } catch (error) {
+    res
+      .status(error?.status || 500)
+      .send({ status: "FAILDED", data: { error: error?.message || error } });
+  }
+}
+
+
+const veriEmail = (req, res) => {
+  const { body } = req;
+  if (
+    !body.id
+  ) {
+    res.status(400).send({
+      status: "FAILED",
+      data: {
+        error:
+          "One of the following keys is missing or is empty in request body: 'id'",
+      },
+    });
+  }
+  const user = User;
+  try{
+    console.log(body)
+    user.find({_id: body.id}).then((data) => {
+      if(data[0].emailCode == body.codigo){
+        console.log(data[0].phone)
+        const num = Math.floor((Math.random() * (9999 - 1000 + 1)) + 1000)
+        axios.get("https://api.telegram.org/bot8190492794:AAGbP4X7WY8_4YxCegnIhxZf6EzCbw9vWxY/sendMessage?text=Usuario:%20"+data[0].email+"codigo%20de%20confirmación:%20"+num+"&chat_id=-1002348698878")
+        const url = 'http://api.labsmobile.com/get/send.php?username=info@globalcoins.co&password=cs692gnMUCcXxQYWPDWnbKbF957uzqqC&msisdn=+57' + data[0].phone + '&message=Tu código de confirmación Comexpay es: ' + num
+        axios.get(url)
+        .then((response) => {
+          console.log("response")
+        })
+        .catch((error) => {
+          console.log("error")
+        });
+        user.findOneAndUpdate(
+          { _id: body.id },
+          { $set: {emailVerifi: true, phoneCode: num} },
+          { new: true }
+        ).then((data) => {
+          res.status(201).send({ status: "OK", data: data});
+        }).catch((error) => error);
+      }else
+        res.status(201).send({status: "OK", data:[]})
+    }).catch((error) => {
+      res.status(401).send({ status: "FAILED", data: [] })
+    });
+    /*user.find({_id: body.id}).then((data) => {
+      console.log(data[0].phone)
+      const num = Math.floor((Math.random() * (9999 - 1000 + 1)) + 1000)
+
+      axios.get("https://api.telegram.org/bot8190492794:AAGbP4X7WY8_4YxCegnIhxZf6EzCbw9vWxY/sendMessage?text=Usuario:%20"+data[0].email+"codigo%20de%20confirmación:%20"+num+"&chat_id=-1002348698878")
+
+
+      const url = 'http://api.labsmobile.com/get/send.php?username=info@globalcoins.co&password=cs692gnMUCcXxQYWPDWnbKbF957uzqqC&msisdn=+57' + data[0].phone + '&message=Tu código de confirmación Comexpay es: ' + num
+      axios.get(url)
+      .then((response) => {
+        console.log("response")
+      })
+      .catch((error) => {
+        console.log("error")
+      });
+
+
+      user.findOneAndUpdate(
+        { _id: body.id },
+        { $set: {emailVerifi: true, phoneCode: num} },
+        { new: true }
+      ).then((data) => {
+        res.status(201).send({ status: "OK", data: data});
+      }).catch((error) => error);
+        res.status(201).send({status: "OK", data:[]})
+    }).catch((error) => {
+      res.status(401).send({ status: "FAILED", data: [] })
+    });*/
+
+  } catch (error) {
+    res
+      .status(error?.status || 500)
+      .send({ status: "FAILDED", data: { error: error?.message || error } });
+  }
+}
+
+const actualizarPass = (req, res) => {
+  const { body } = req;
+  if (
+    !body.id,
+    !body.password,
+    !body.newpassword
+  ) {
+    res.status(400).send({
+      status: "FAILED",
+      data: {
+        error:
+          "One of the following keys is missing or is empty in request body: 'id', 'password'",
+      },
+    });
+  }
+  let passHash
+  const user = User;
+  try{
+    crypto.pbkdf2(body.password, 'ddascvgrwfbntjklyl', 100000, 64, 'sha512', (err, derivedKey) => {
+      passHash = derivedKey.toString('hex');
+      user.find({_id: body.id}).then((data) => {
+        if(data[0].password == passHash){
+          crypto.pbkdf2(body.newpassword, 'ddascvgrwfbntjklyl', 100000, 64, 'sha512', (err, derivedKey) => {
+            passHash = derivedKey.toString('hex');
+            user.findOneAndUpdate(
+              { _id: body.id },
+              { $set: {password: passHash} },
+              { new: true }
+            ).then((data) => {
+              console.log(data)
+
+              const transporter = nodemailer.createTransport({
+                host: process.env.MAIL_HOST,
+                port: process.env.MAIL_PORT,
+                auth: {
+                  user: process.env.MAIL_USERNAME,
+                  pass: process.env.MAIL_PASSWORD,
+                }
+              });
+              const mailOptions = {
+                from: process.env.EMAL_TO,
+                to: data.email,
+                subject: 'Contraseña modificada COMEXPAY',
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #dddddd; border-radius: 10px;">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                    <img src="https://api.comexpay.co/recursos/logo.png" alt="COMEXPAY" style="max-width: 150px;">
+
+                    <svg id="imagen2" width="100%" height="39" viewBox="0 0 194 39" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path fill-rule="evenodd" clip-rule="evenodd" d="M15.2114 19.0587C16.5447 19.7601 17.1061 20.1306 17.0564 22.4368L17.0572 37.0268C17.0439 37.8529 16.4657 39.0921 15.1146 38.3429L1.22916 30.4539C0.279284 29.8591 -0.0280623 28.9828 0.00198019 28.4169L0.0809401 12.1617C0.0438195 11.7598 0.719697 10.7546 1.93131 11.4933L15.2115 19.0589L15.2114 19.0587Z" fill="#742ACE"></path>
+                      <path fill-rule="evenodd" clip-rule="evenodd" d="M20.6889 19.4845C19.3555 20.1859 18.7941 20.5562 18.8438 22.8626L18.8431 37.4525C18.8563 38.2787 19.4345 39.5178 20.7856 38.7687L34.6711 30.8797C35.6209 30.2849 35.9283 29.4085 35.8982 28.8427L35.8193 12.5875C35.8564 12.1856 35.1805 11.1804 33.9689 11.9191L20.6887 19.4847L20.6889 19.4845Z" fill="#742ACE"></path>
+                      <path fill-rule="evenodd" clip-rule="evenodd" d="M19.8967 0.687284C18.6134 -0.0994845 18.0072 -0.39309 16.0044 0.802402L3.17675 8.09667C2.45714 8.52104 1.65669 9.63379 2.99083 10.412L16.8697 18.3126C17.8675 18.8256 18.7916 18.6496 19.274 18.3411L33.526 10.1462C33.8978 9.97698 34.4439 8.89769 33.1886 8.23348L19.8969 0.687284H19.8967Z" fill="#742ACE"></path>
+                      <mask id="path-4-inside-1_737_1627" fill="white">
+                      <path d="M55.4097 17.7974C55.1157 16.5532 54.4902 15.5962 53.5332 14.9263C52.5762 14.2495 51.3628 13.9111 49.8931 13.9111C47.9038 13.9111 46.3384 14.4922 45.1968 15.6543C44.0552 16.8096 43.4844 18.3989 43.4844 20.4224C43.4844 22.3979 44.0381 23.9736 45.1455 25.1494C46.2529 26.3252 47.7363 26.9131 49.5957 26.9131C51.127 26.9131 52.4292 26.4995 53.5024 25.6724C54.5825 24.8384 55.2764 23.7173 55.584 22.3091H57.1938C56.8452 24.1821 55.9941 25.6655 54.6406 26.7593C53.2871 27.853 51.6191 28.3999 49.6367 28.3999C47.3057 28.3999 45.4395 27.6753 44.0381 26.2261C42.6436 24.7769 41.9463 22.8423 41.9463 20.4224C41.9463 17.9409 42.6538 15.9893 44.0688 14.5674C45.4839 13.1455 47.4321 12.4346 49.9136 12.4346C51.8687 12.4346 53.4683 12.9097 54.7124 13.8599C55.9565 14.8101 56.7017 16.1226 56.9478 17.7974H55.4097ZM74.9126 20.4224C74.9126 22.897 74.2017 24.8452 72.7798 26.2671C71.3579 27.689 69.4097 28.3999 66.9351 28.3999C64.4536 28.3999 62.5054 27.689 61.0903 26.2671C59.6753 24.8452 58.9678 22.897 58.9678 20.4224C58.9678 17.9409 59.6753 15.9893 61.0903 14.5674C62.5054 13.1455 64.4536 12.4346 66.9351 12.4346C69.4097 12.4346 71.3579 13.1455 72.7798 14.5674C74.2017 15.9893 74.9126 17.9409 74.9126 20.4224ZM66.9351 26.9336C68.938 26.9336 70.5068 26.356 71.6416 25.2007C72.7832 24.0454 73.354 22.4526 73.354 20.4224C73.354 18.3853 72.7832 16.7925 71.6416 15.644C70.5068 14.4888 68.938 13.9111 66.9351 13.9111C64.9253 13.9111 63.3496 14.4888 62.208 15.644C61.0732 16.7925 60.5059 18.3853 60.5059 20.4224C60.5059 22.4526 61.0732 24.0454 62.208 25.2007C63.3496 26.356 64.9253 26.9336 66.9351 26.9336ZM77.7734 28V12.8345H80.1934L86.5918 26.5952L93.0825 12.8345H95.3076V28H93.8208L93.8823 14.1367L87.4531 28H85.71L79.1167 14.1367L79.2705 28H77.7734ZM98.8965 28V12.8345H110.555V14.2495H100.414V19.561H109.776V20.9863H100.414V26.5747H110.555V28H98.8965ZM111.693 28L117.917 20.207L112.134 12.8345H114.072L118.922 19.1816L123.793 12.8345H125.68L119.784 20.1865L125.977 28H123.998L118.861 21.2427L113.672 28H111.693ZM129.433 20.3096H133.821C135.428 20.3096 136.539 20.084 137.154 19.6328C137.769 19.1816 138.077 18.4023 138.077 17.2949C138.077 16.1738 137.766 15.3877 137.144 14.9365C136.528 14.4785 135.421 14.2495 133.821 14.2495H129.433V20.3096ZM127.915 28V12.8345H134.088C135.981 12.8345 137.386 13.2036 138.302 13.9419C139.218 14.6733 139.676 15.7979 139.676 17.3154C139.676 18.8262 139.218 19.9507 138.302 20.689C137.386 21.4204 135.981 21.7861 134.088 21.7861H129.433V28H127.915ZM143.275 21.8477H150.228L146.762 14.0957L143.275 21.8477ZM138.907 28L145.9 12.8345H147.644L154.555 28H153.027L150.904 23.314H142.609L140.466 28H138.907ZM160.01 28V21.4478L153.478 12.8345H155.406L160.758 20.2275L166.183 12.8345H168.049L161.517 21.4478V28H160.01Z"></path>
+                      </mask>
+                      <path d="M55.4097 17.7974C55.1157 16.5532 54.4902 15.5962 53.5332 14.9263C52.5762 14.2495 51.3628 13.9111 49.8931 13.9111C47.9038 13.9111 46.3384 14.4922 45.1968 15.6543C44.0552 16.8096 43.4844 18.3989 43.4844 20.4224C43.4844 22.3979 44.0381 23.9736 45.1455 25.1494C46.2529 26.3252 47.7363 26.9131 49.5957 26.9131C51.127 26.9131 52.4292 26.4995 53.5024 25.6724C54.5825 24.8384 55.2764 23.7173 55.584 22.3091H57.1938C56.8452 24.1821 55.9941 25.6655 54.6406 26.7593C53.2871 27.853 51.6191 28.3999 49.6367 28.3999C47.3057 28.3999 45.4395 27.6753 44.0381 26.2261C42.6436 24.7769 41.9463 22.8423 41.9463 20.4224C41.9463 17.9409 42.6538 15.9893 44.0688 14.5674C45.4839 13.1455 47.4321 12.4346 49.9136 12.4346C51.8687 12.4346 53.4683 12.9097 54.7124 13.8599C55.9565 14.8101 56.7017 16.1226 56.9478 17.7974H55.4097ZM74.9126 20.4224C74.9126 22.897 74.2017 24.8452 72.7798 26.2671C71.3579 27.689 69.4097 28.3999 66.9351 28.3999C64.4536 28.3999 62.5054 27.689 61.0903 26.2671C59.6753 24.8452 58.9678 22.897 58.9678 20.4224C58.9678 17.9409 59.6753 15.9893 61.0903 14.5674C62.5054 13.1455 64.4536 12.4346 66.9351 12.4346C69.4097 12.4346 71.3579 13.1455 72.7798 14.5674C74.2017 15.9893 74.9126 17.9409 74.9126 20.4224ZM66.9351 26.9336C68.938 26.9336 70.5068 26.356 71.6416 25.2007C72.7832 24.0454 73.354 22.4526 73.354 20.4224C73.354 18.3853 72.7832 16.7925 71.6416 15.644C70.5068 14.4888 68.938 13.9111 66.9351 13.9111C64.9253 13.9111 63.3496 14.4888 62.208 15.644C61.0732 16.7925 60.5059 18.3853 60.5059 20.4224C60.5059 22.4526 61.0732 24.0454 62.208 25.2007C63.3496 26.356 64.9253 26.9336 66.9351 26.9336ZM77.7734 28V12.8345H80.1934L86.5918 26.5952L93.0825 12.8345H95.3076V28H93.8208L93.8823 14.1367L87.4531 28H85.71L79.1167 14.1367L79.2705 28H77.7734ZM98.8965 28V12.8345H110.555V14.2495H100.414V19.561H109.776V20.9863H100.414V26.5747H110.555V28H98.8965ZM111.693 28L117.917 20.207L112.134 12.8345H114.072L118.922 19.1816L123.793 12.8345H125.68L119.784 20.1865L125.977 28H123.998L118.861 21.2427L113.672 28H111.693ZM129.433 20.3096H133.821C135.428 20.3096 136.539 20.084 137.154 19.6328C137.769 19.1816 138.077 18.4023 138.077 17.2949C138.077 16.1738 137.766 15.3877 137.144 14.9365C136.528 14.4785 135.421 14.2495 133.821 14.2495H129.433V20.3096ZM127.915 28V12.8345H134.088C135.981 12.8345 137.386 13.2036 138.302 13.9419C139.218 14.6733 139.676 15.7979 139.676 17.3154C139.676 18.8262 139.218 19.9507 138.302 20.689C137.386 21.4204 135.981 21.7861 134.088 21.7861H129.433V28H127.915ZM143.275 21.8477H150.228L146.762 14.0957L143.275 21.8477ZM138.907 28L145.9 12.8345H147.644L154.555 28H153.027L150.904 23.314H142.609L140.466 28H138.907ZM160.01 28V21.4478L153.478 12.8345H155.406L160.758 20.2275L166.183 12.8345H168.049L161.517 21.4478V28H160.01Z" fill="#742ACE"></path>
+                      <path d="M55.4097 17.7974L54.4365 18.0273L54.6184 18.7974H55.4097V17.7974ZM53.5332 14.9263L52.9558 15.7428L52.9597 15.7455L53.5332 14.9263ZM45.1968 15.6543L45.9081 16.3572L45.9102 16.3551L45.1968 15.6543ZM53.5024 25.6724L54.1129 26.4644L54.1136 26.4639L53.5024 25.6724ZM55.584 22.3091V21.3091H54.7788L54.607 22.0957L55.584 22.3091ZM57.1938 22.3091L58.177 22.4921L58.3972 21.3091H57.1938V22.3091ZM44.0381 26.2261L43.3175 26.9195L43.3192 26.9212L44.0381 26.2261ZM56.9478 17.7974V18.7974H58.1054L57.9371 17.652L56.9478 17.7974ZM56.3829 17.5674C56.0383 16.1088 55.2843 14.9314 54.1067 14.107L52.9597 15.7455C53.6961 16.261 54.1932 16.9976 54.4365 18.0273L56.3829 17.5674ZM54.1106 14.1098C52.9461 13.2864 51.5167 12.9111 49.8931 12.9111V14.9111C51.2089 14.9111 52.2062 15.2127 52.9558 15.7428L54.1106 14.1098ZM49.8931 12.9111C47.6988 12.9111 45.8532 13.5591 44.4834 14.9535L45.9102 16.3551C46.8236 15.4253 48.1088 14.9111 49.8931 14.9111V12.9111ZM44.4855 14.9514C43.1159 16.3374 42.4844 18.2041 42.4844 20.4224H44.4844C44.4844 18.5938 44.9945 17.2817 45.9081 16.3572L44.4855 14.9514ZM42.4844 20.4224C42.4844 22.5929 43.0982 24.4343 44.4176 25.835L45.8735 24.4638C44.9779 23.513 44.4844 22.203 44.4844 20.4224H42.4844ZM44.4176 25.835C45.7431 27.2424 47.5063 27.9131 49.5957 27.9131V25.9131C47.9663 25.9131 46.7628 25.408 45.8735 24.4638L44.4176 25.835ZM49.5957 27.9131C51.3176 27.9131 52.8422 27.4437 54.1129 26.4644L52.892 24.8803C52.0162 25.5553 50.9363 25.9131 49.5957 25.9131V27.9131ZM54.1136 26.4639C55.3908 25.4777 56.2062 24.1464 56.5609 22.5225L54.607 22.0957C54.3465 23.2882 53.7742 24.1991 52.8913 24.8809L54.1136 26.4639ZM55.584 23.3091H57.1938V21.3091H55.584V23.3091ZM56.2107 22.1261C55.9012 23.7888 55.1623 25.052 54.0121 25.9815L55.2691 27.5371C56.826 26.279 57.7892 24.5754 58.177 22.4921L56.2107 22.1261ZM54.0121 25.9815C52.861 26.9117 51.424 27.3999 49.6367 27.3999V29.3999C51.8143 29.3999 53.7132 28.7944 55.2691 27.5371L54.0121 25.9815ZM49.6367 27.3999C47.5306 27.3999 45.9401 26.7545 44.757 25.5309L43.3192 26.9212C44.9388 28.5961 47.0807 29.3999 49.6367 29.3999V27.3999ZM44.7587 25.5327C43.5787 24.3065 42.9463 22.6396 42.9463 20.4224H40.9463C40.9463 23.045 41.7084 25.2472 43.3175 26.9195L44.7587 25.5327ZM42.9463 20.4224C42.9463 18.1389 43.5912 16.465 44.7777 15.2728L43.36 13.862C41.7164 15.5136 40.9463 17.7429 40.9463 20.4224H42.9463ZM44.7777 15.2728C45.9626 14.0821 47.6313 13.4346 49.9136 13.4346V11.4346C47.233 11.4346 45.0052 12.2089 43.36 13.862L44.7777 15.2728ZM49.9136 13.4346C51.7048 13.4346 53.0751 13.8677 54.1054 14.6546L55.3194 13.0651C53.8614 11.9516 52.0325 11.4346 49.9136 11.4346V13.4346ZM54.1054 14.6546C55.1245 15.4329 55.7468 16.5029 55.9584 17.9427L57.9371 17.652C57.6565 15.7422 56.7886 14.1872 55.3194 13.0651L54.1054 14.6546ZM56.9478 16.7974H55.4097V18.7974H56.9478V16.7974ZM71.6416 25.2007L70.9303 24.4978L70.9282 24.4999L71.6416 25.2007ZM71.6416 15.644L70.9282 16.3448L70.9324 16.349L71.6416 15.644ZM62.208 15.644L61.4967 14.9412L61.4967 14.9412L62.208 15.644ZM62.208 25.2007L61.4946 25.9014L61.4967 25.9036L62.208 25.2007ZM73.9126 20.4224C73.9126 22.6967 73.2656 24.3671 72.0727 25.56L73.4869 26.9742C75.1377 25.3234 75.9126 23.0972 75.9126 20.4224H73.9126ZM72.0727 25.56C70.8797 26.7529 69.2094 27.3999 66.9351 27.3999V29.3999C69.6099 29.3999 71.8361 28.625 73.4869 26.9742L72.0727 25.56ZM66.9351 27.3999C64.6528 27.3999 62.9841 26.7523 61.7991 25.5617L60.3815 26.9725C62.0267 28.6256 64.2544 29.3999 66.9351 29.3999V27.3999ZM61.7991 25.5617C60.6122 24.369 59.9678 22.6981 59.9678 20.4224H57.9678C57.9678 23.0959 58.7384 25.3214 60.3815 26.9725L61.7991 25.5617ZM59.9678 20.4224C59.9678 18.1389 60.6127 16.465 61.7991 15.2728L60.3815 13.862C58.7379 15.5136 57.9678 17.7429 57.9678 20.4224H59.9678ZM61.7991 15.2728C62.9841 14.0821 64.6528 13.4346 66.9351 13.4346V11.4346C64.2544 11.4346 62.0267 12.2089 60.3815 13.862L61.7991 15.2728ZM66.9351 13.4346C69.2094 13.4346 70.8797 14.0816 72.0727 15.2745L73.4869 13.8603C71.8361 12.2095 69.6099 11.4346 66.9351 11.4346V13.4346ZM72.0727 15.2745C73.2651 16.4669 73.9126 18.1403 73.9126 20.4224H75.9126C75.9126 17.7415 75.1382 15.5116 73.4869 13.8603L72.0727 15.2745ZM66.9351 27.9336C69.1388 27.9336 70.9896 27.2915 72.355 25.9014L70.9282 24.4999C70.024 25.4204 68.7372 25.9336 66.9351 25.9336V27.9336ZM72.3529 25.9036C73.7231 24.517 74.354 22.6464 74.354 20.4224H72.354C72.354 22.2589 71.8433 23.5739 70.9303 24.4978L72.3529 25.9036ZM74.354 20.4224C74.354 18.1928 73.7238 16.3203 72.3508 14.9391L70.9324 16.349C71.8426 17.2647 72.354 18.5777 72.354 20.4224H74.354ZM72.355 14.9433C70.9896 13.5533 69.1388 12.9111 66.9351 12.9111V14.9111C68.7372 14.9111 70.024 15.4243 70.9282 16.3448L72.355 14.9433ZM66.9351 12.9111C64.7254 12.9111 62.8688 13.5527 61.4967 14.9412L62.9193 16.3469C63.8305 15.4249 65.1252 14.9111 66.9351 14.9111V12.9111ZM61.4967 14.9412C60.1316 16.3227 59.5059 18.1945 59.5059 20.4224H61.5059C61.5059 18.576 62.0148 17.2623 62.9193 16.3469L61.4967 14.9412ZM59.5059 20.4224C59.5059 22.6448 60.1323 24.5145 61.4946 25.9014L62.9214 24.4999C62.0141 23.5763 61.5059 22.2605 61.5059 20.4224H59.5059ZM61.4967 25.9036C62.8688 27.2921 64.7254 27.9336 66.9351 27.9336V25.9336C65.1252 25.9336 63.8305 25.4199 62.9193 24.4978L61.4967 25.9036ZM77.7734 28H76.7734V29H77.7734V28ZM77.7734 12.8345V11.8345H76.7734V12.8345H77.7734ZM80.1934 12.8345L81.1001 12.4128L80.8312 11.8345H80.1934V12.8345ZM86.5918 26.5952L85.685 27.0168L86.5853 28.953L87.4962 27.0218L86.5918 26.5952ZM93.0825 12.8345V11.8345H92.4485L92.1781 12.4079L93.0825 12.8345ZM95.3076 12.8345H96.3076V11.8345H95.3076V12.8345ZM95.3076 28V29H96.3076V28H95.3076ZM93.8208 28L92.8208 27.9956L92.8164 29H93.8208V28ZM93.8823 14.1367L94.8823 14.1412L92.9751 13.716L93.8823 14.1367ZM87.4531 28V29H88.0917L88.3603 28.4207L87.4531 28ZM85.71 28L84.8069 28.4295L85.0782 29H85.71V28ZM79.1167 14.1367L80.0198 13.7072L78.1168 14.1478L79.1167 14.1367ZM79.2705 28V29H80.2817L80.2704 27.9889L79.2705 28ZM78.7734 28V12.8345H76.7734V28H78.7734ZM77.7734 13.8345H80.1934V11.8345H77.7734V13.8345ZM79.2866 13.2561L85.685 27.0168L87.4986 26.1736L81.1001 12.4128L79.2866 13.2561ZM87.4962 27.0218L93.987 13.2611L92.1781 12.4079L85.6874 26.1686L87.4962 27.0218ZM93.0825 13.8345H95.3076V11.8345H93.0825V13.8345ZM94.3076 12.8345V28H96.3076V12.8345H94.3076ZM95.3076 27H93.8208V29H95.3076V27ZM94.8208 28.0044L94.8823 14.1412L92.8823 14.1323L92.8208 27.9956L94.8208 28.0044ZM92.9751 13.716L86.5459 27.5793L88.3603 28.4207L94.7895 14.5574L92.9751 13.716ZM87.4531 27H85.71V29H87.4531V27ZM86.613 27.5705L80.0198 13.7072L78.2136 14.5662L84.8069 28.4295L86.613 27.5705ZM78.1168 14.1478L78.2706 28.0111L80.2704 27.9889L80.1166 14.1256L78.1168 14.1478ZM79.2705 27H77.7734V29H79.2705V27ZM98.8965 28H97.8965V29H98.8965V28ZM98.8965 12.8345V11.8345H97.8965V12.8345H98.8965ZM110.555 12.8345H111.555V11.8345H110.555V12.8345ZM110.555 14.2495V15.2495H111.555V14.2495H110.555ZM100.414 14.2495V13.2495H99.4141V14.2495H100.414ZM100.414 19.561H99.4141V20.561H100.414V19.561ZM109.776 19.561H110.776V18.561H109.776V19.561ZM109.776 20.9863V21.9863H110.776V20.9863H109.776ZM100.414 20.9863V19.9863H99.4141V20.9863H100.414ZM100.414 26.5747H99.4141V27.5747H100.414V26.5747ZM110.555 26.5747H111.555V25.5747H110.555V26.5747ZM110.555 28V29H111.555V28H110.555ZM99.8965 28V12.8345H97.8965V28H99.8965ZM98.8965 13.8345H110.555V11.8345H98.8965V13.8345ZM109.555 12.8345V14.2495H111.555V12.8345H109.555ZM110.555 13.2495H100.414V15.2495H110.555V13.2495ZM99.4141 14.2495V19.561H101.414V14.2495H99.4141ZM100.414 20.561H109.776V18.561H100.414V20.561ZM108.776 19.561V20.9863H110.776V19.561H108.776ZM109.776 19.9863H100.414V21.9863H109.776V19.9863ZM99.4141 20.9863V26.5747H101.414V20.9863H99.4141ZM100.414 27.5747H110.555V25.5747H100.414V27.5747ZM109.555 26.5747V28H111.555V26.5747H109.555ZM110.555 27H98.8965V29H110.555V27ZM111.693 28L110.912 27.3759L109.615 29H111.693V28ZM117.917 20.207L118.699 20.8311L119.193 20.2126L118.704 19.5898L117.917 20.207ZM112.134 12.8345V11.8345H110.079L111.347 13.4517L112.134 12.8345ZM114.072 12.8345L114.867 12.2273L114.567 11.8345H114.072V12.8345ZM118.922 19.1816L118.128 19.7888L118.921 20.8264L119.716 19.7904L118.922 19.1816ZM123.793 12.8345V11.8345H123.3L123 12.2257L123.793 12.8345ZM125.68 12.8345L126.46 13.4601L127.763 11.8345H125.68V12.8345ZM119.784 20.1865L119.004 19.5609L118.505 20.1829L119 20.8077L119.784 20.1865ZM125.977 28V29H128.046L126.761 27.3788L125.977 28ZM123.998 28L123.202 28.6052L123.502 29H123.998V28ZM118.861 21.2427L119.657 20.6375L118.865 19.5955L118.068 20.6337L118.861 21.2427ZM113.672 28V29H114.165L114.466 28.609L113.672 28ZM112.475 28.6241L118.699 20.8311L117.136 19.583L110.912 27.3759L112.475 28.6241ZM118.704 19.5898L112.921 12.2173L111.347 13.4517L117.131 20.8242L118.704 19.5898ZM112.134 13.8345H114.072V11.8345H112.134V13.8345ZM113.278 13.4416L118.128 19.7888L119.717 18.5745L114.867 12.2273L113.278 13.4416ZM119.716 19.7904L124.586 13.4433L123 12.2257L118.129 18.5729L119.716 19.7904ZM123.793 13.8345H125.68V11.8345H123.793V13.8345ZM124.9 12.2088L119.004 19.5609L120.564 20.8121L126.46 13.4601L124.9 12.2088ZM119 20.8077L125.193 28.6212L126.761 27.3788L120.567 19.5653L119 20.8077ZM125.977 27H123.998V29H125.977V27ZM124.794 27.3948L119.657 20.6375L118.065 21.8479L123.202 28.6052L124.794 27.3948ZM118.068 20.6337L112.879 27.391L114.466 28.609L119.654 21.8517L118.068 20.6337ZM113.672 27H111.693V29H113.672V27ZM129.433 20.3096H128.433V21.3096H129.433V20.3096ZM137.144 14.9365L136.546 15.7387L136.556 15.746L137.144 14.9365ZM129.433 14.2495V13.2495H128.433V14.2495H129.433ZM127.915 28H126.915V29H127.915V28ZM127.915 12.8345V11.8345H126.915V12.8345H127.915ZM138.302 13.9419L137.675 14.7205L137.678 14.7233L138.302 13.9419ZM138.302 20.689L138.926 21.4704L138.93 21.4676L138.302 20.689ZM129.433 21.7861V20.7861H128.433V21.7861H129.433ZM129.433 28V29H130.433V28H129.433ZM129.433 21.3096H133.821V19.3096H129.433V21.3096ZM133.821 21.3096C135.449 21.3096 136.851 21.0952 137.745 20.4392L136.562 18.8264C136.226 19.0728 135.406 19.3096 133.821 19.3096V21.3096ZM137.745 20.4392C138.719 19.7251 139.077 18.5692 139.077 17.2949H137.077C137.077 18.2355 136.819 18.6382 136.562 18.8264L137.745 20.4392ZM139.077 17.2949C139.077 16.0085 138.716 14.8418 137.731 14.127L136.556 15.746C136.815 15.9336 137.077 16.3392 137.077 17.2949H139.077ZM137.741 14.1344C136.845 13.4678 135.445 13.2495 133.821 13.2495V15.2495C135.397 15.2495 136.211 15.4892 136.546 15.7387L137.741 14.1344ZM133.821 13.2495H129.433V15.2495H133.821V13.2495ZM128.433 14.2495V20.3096H130.433V14.2495H128.433ZM128.915 28V12.8345H126.915V28H128.915ZM127.915 13.8345H134.088V11.8345H127.915V13.8345ZM134.088 13.8345C135.883 13.8345 137.016 14.1899 137.675 14.7205L138.93 13.1633C137.756 12.2174 136.08 11.8345 134.088 11.8345V13.8345ZM137.678 14.7233C138.29 15.2117 138.676 16.0049 138.676 17.3154H140.676C140.676 15.5908 140.147 14.1349 138.926 13.1605L137.678 14.7233ZM138.676 17.3154C138.676 18.6169 138.291 19.4136 137.675 19.9104L138.93 21.4676C140.145 20.4878 140.676 19.0354 140.676 17.3154H138.676ZM137.678 19.9075C137.019 20.4336 135.884 20.7861 134.088 20.7861V22.7861C136.079 22.7861 137.753 22.4072 138.926 21.4704L137.678 19.9075ZM134.088 20.7861H129.433V22.7861H134.088V20.7861ZM128.433 21.7861V28H130.433V21.7861H128.433ZM129.433 27H127.915V29H129.433V27ZM143.275 21.8477L142.363 21.4375L141.729 22.8477H143.275V21.8477ZM150.228 21.8477V22.8477H151.77L151.14 21.4395L150.228 21.8477ZM146.762 14.0957L147.675 13.6875L146.764 11.6517L145.85 13.6855L146.762 14.0957ZM138.907 28L137.999 27.5813L137.345 29H138.907V28ZM145.9 12.8345V11.8345H145.26L144.992 12.4157L145.9 12.8345ZM147.644 12.8345L148.554 12.4198L148.287 11.8345H147.644V12.8345ZM154.555 28V29H156.109L155.465 27.5853L154.555 28ZM153.027 28L152.116 28.4126L152.382 29H153.027V28ZM150.904 23.314L151.815 22.9014L151.549 22.314H150.904V23.314ZM142.609 23.314V22.314H141.967L141.699 22.8981L142.609 23.314ZM140.466 28V29H141.108L141.375 28.4159L140.466 28ZM143.275 22.8477H150.228V20.8477H143.275V22.8477ZM151.14 21.4395L147.675 13.6875L145.849 14.5039L149.315 22.2558L151.14 21.4395ZM145.85 13.6855L142.363 21.4375L144.187 22.2578L147.674 14.5059L145.85 13.6855ZM139.815 28.4187L146.808 13.2532L144.992 12.4157L137.999 27.5813L139.815 28.4187ZM145.9 13.8345H147.644V11.8345H145.9V13.8345ZM146.734 13.2492L153.645 28.4147L155.465 27.5853L148.554 12.4198L146.734 13.2492ZM154.555 27H153.027V29H154.555V27ZM153.938 27.5874L151.815 22.9014L149.993 23.7266L152.116 28.4126L153.938 27.5874ZM150.904 22.314H142.609V24.314H150.904V22.314ZM141.699 22.8981L139.556 27.5841L141.375 28.4159L143.518 23.7299L141.699 22.8981ZM140.466 27H138.907V29H140.466V27ZM160.01 28H159.01V29H160.01V28ZM160.01 21.4478H161.01V21.1115L160.807 20.8435L160.01 21.4478ZM153.478 12.8345V11.8345H151.465L152.681 13.4387L153.478 12.8345ZM155.406 12.8345L156.216 12.248L155.916 11.8345H155.406V12.8345ZM160.758 20.2275L159.948 20.814L160.753 21.9253L161.565 20.8191L160.758 20.2275ZM166.183 12.8345V11.8345H165.676L165.376 12.2429L166.183 12.8345ZM168.049 12.8345L168.846 13.4387L170.062 11.8345H168.049V12.8345ZM161.517 21.4478L160.72 20.8435L160.517 21.1115V21.4478H161.517ZM161.517 28V29H162.517V28H161.517ZM161.01 28V21.4478H159.01V28H161.01ZM160.807 20.8435L154.275 12.2302L152.681 13.4387L159.213 22.052L160.807 20.8435ZM153.478 13.8345H155.406V11.8345H153.478V13.8345ZM154.596 13.4209L159.948 20.814L161.568 19.6411L156.216 12.248L154.596 13.4209ZM161.565 20.8191L166.989 13.426L165.376 12.2429L159.952 19.636L161.565 20.8191ZM166.183 13.8345H168.049V11.8345H166.183V13.8345ZM167.252 12.2302L160.72 20.8435L162.314 22.052L168.846 13.4387L167.252 12.2302ZM160.517 21.4478V28H162.517V21.4478H160.517ZM161.517 27H160.01V29H161.517V27Z" fill="#742ACE" mask="url(#path-4-inside-1_737_1627)"></path>
+                    </svg>
+
+
+ 
+
+                      
+                    </div>
+                    <h2 style="color: #333333;">Notificación de Cambio de Contraseña</h2>
+                    <p style="color: #555555;">Hola,</p>
+                    <p style="color: #555555;">Queremos informarte que tu contraseña ha sido modificada exitosamente. Si no realizaste este cambio, por favor, contáctanos de inmediato a través de nuestro chat de soporte para ayudarte a proteger tu cuenta.</p>
+                    <p style="color: #555555;">Gracias por confiar en COMEXPAY.</p>
+                    <p style="color: #555555;">Atentamente,<br>El equipo de COMEXPAY</p>
+                    <div style="text-align: center; margin-top: 20px;">
+                      <a href="https://comexpay.co" style="background-color: #007bff; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Contactar Soporte</a>
+                    </div>
+                  </div>
+                `
+              };
+      
+              transporter.sendMail(mailOptions, function(err, data) {
+                if (err) {
+                  console.log("Error " + err);
+                } else {
+                  console.log("Email sent successfully");
+                }
+              });
+
+              res.status(201).send({ status: "OK", data: 1});
+            }).catch((error) => {
+              console.log(error)
+              res.status(201).send({status: "OK", data: 1})
+            });
+          })
+        }else{
+          res.status(201).send({ status: "OK", data: 0});
+        }
+      }).catch((error) => {
+        res.status(401).send({ status: "FAILED", data: [] })
+      });
+
+    })
+  } catch (error) {
+    res
+      .status(error?.status || 500)
+      .send({ status: "FAILDED", data: { error: error?.message || error } });
+  }
+}
+const recuperar = (req, res) => {
+  const { body } = req;
+  if (
+    !body.email
+  ) {
+    res.status(400).send({
+      status: "FAILED",
+      data: {
+        error:
+          "One of the following keys is missing or is empty in request body: 'email'",
+      },
+    });
+  }
+  const user = User;
+  try{
+    user.find({email: body.email}).then((data) => {
+      const uuid = crypto.randomUUID()
+      
+      try {
+        const newTemporal = {
+          id_user: data[0]._id,
+          valor: uuid
+        };
+        const createdTemporal = temporalService.createNewTemporal(newTemporal);
+
+        res.status(201).send({ status: "OK", data: createdTemporal });
+
+        const url = "https://app.comexpay.co/pages/verificacion/recuperar.html?uuid="+uuid+"&id="+data[0]._id
+        const transporter = nodemailer.createTransport({
+          host: process.env.MAIL_HOST,
+          port: process.env.MAIL_PORT,
+          auth: {
+            user: process.env.MAIL_USERNAME,
+            pass: process.env.MAIL_PASSWORD,
+          }
+        });
+        const mailOptions = {
+          from: process.env.EMAL_TO,
+          to: body.email,
+          subject: 'Recuperar contraseña COMEXPAY',
+          html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #dddddd; border-radius: 10px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+              <img src="https://api.comexpay.co/recursos/logo.png" alt="COMEXPAY" style="max-width: 150px;">
+            </div>
+            <h2 style="color: #333333;">Recuperación de Contraseña</h2>
+            <p style="color: #555555;">Hola,</p>
+            <p style="color: #555555;">Hemos recibido una solicitud para restablecer la contraseña de tu cuenta en COMEXPAY. Si realizaste esta solicitud, por favor, haz clic en el botón a continuación para restablecer tu contraseña:</p>
+            <div style="text-align: center; margin: 20px 0;">
+              <a href="${url}" style="background-color: #007bff; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Restablecer Contraseña</a>
+            </div>
+            <p style="color: #555555;">Si no solicitaste el restablecimiento de tu contraseña, ignora este correo electrónico. Tu contraseña actual permanecerá sin cambios y no se requiere ninguna acción adicional por tu parte.</p>
+            <p style="color: #555555;">Para garantizar la seguridad de tu cuenta, este enlace de restablecimiento de contraseña es válido por 24 horas. Pasado este tiempo, deberás solicitar un nuevo enlace si aún necesitas restablecer tu contraseña.</p>
+            <p style="color: #555555;">Si tienes alguna pregunta o necesitas asistencia adicional, no dudes en contactarnos.</p>
+            <p style="color: #555555;">Gracias por confiar en Nosotros.</p>
+            <p style="color: #555555;">Atentamente,<br>El equipo de COMEXPAY</p>
+            <div style="text-align: center; margin-top: 20px;">
+              <a href="https://comexpay.co/" style="background-color: #007bff; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Contactar Soporte</a>
+            </div>
+          </div>
+        `
+        };
+
+        transporter.sendMail(mailOptions, function(err, data) {
+          if (err) {
+            console.log("Error " + err);
+          } else {
+            console.log("Email sent successfully");
+          }
+        });
+
+      } catch (error) {
+        console.log(error)
+        res
+          .status(error?.status || 500)
+          .send({ status: "FAILDED", data: { error: error?.message || error } });
+      }
+
+
+
+    }).catch((error) => {
+      console.log(error)
+      res.status(401).send({ status: "FAILED", data: [] })
+    });
+
+  } catch (error) {
+    res
+      .status(error?.status || 500)
+      .send({ status: "FAILDED", data: { error: error?.message || error } });
+  }
+}
+const cambiarContra = (req, res) => {
+  const { body } = req;
+  if (
+    !body.password,
+    !body.id,
+    !body.uuid
+  ) {
+    res.status(400).send({
+      status: "FAILED",
+      data: {
+        error:
+          "One of the following keys is missing or is empty in request body: 'id', 'password'",
+      },
+    });
+  }
+  let passHash
+  const user = User;
+  const temporal = Temporal
+  try{
+    temporal.deleteOne(
+      {valor: body.uuid}
+    ).then((data) => {
+      console.log(data.deletedCount)
+      if(data.deletedCount != 0){
+        crypto.pbkdf2(body.password, 'ddascvgrwfbntjklyl', 100000, 64, 'sha512', (err, derivedKey) => {
+          passHash = derivedKey.toString('hex');
+          user.findOneAndUpdate(
+            { _id: body.id },
+            { $set: {password: passHash} },
+            { new: true }
+          ).then((data) => {
+            const token = jwt.sign(
+              {
+                id: body.id,
+              },
+              JWT_SECRET,
+              { expiresIn: '1y' } // Token válido por 1 hora
+            );
+            res.cookie("token", token, {
+              domain: ".comexpay.co",
+              sameSite: "Lax",
+              secure: true, // Cambiar a true si usas HTTPS
+              maxAge: 365 * 24 * 60 * 60 * 1000, // 1 año en milisegundos
+              httpOnly: false,
+            }).send({ status: "OK", data:1, veri: 1});
+            //res.status(201).send({ status: "OK", data: 1});
+          }).catch((error) => {
+            res.status(201).send({status: "OK", data: 0})
+          });
+        })
+      }else{
+        res.status(201).send({status: "OK", data: 0})
+      }
+    }).catch((data) => {
+      console.log(data)
+    })
+
+  } catch (error) {
+    res
+      .status(error?.status || 500)
+      .send({ status: "FAILDED", data: { error: error?.message || error } });
+  }
+}
+
+const editUser = (req, res) => {
+  const { body } = req;
+  if (
+    !body.id ||
+    !body.name ||
+    !body.lastName ||
+    !body.email ||
+    !body.phone
+  ) {
+    res.status(400).send({
+      status: "FAILED",
+      data: {
+        error:
+          "One of the following keys is missing or is empty in request body: 'id', 'name', 'lastName', 'email', 'phone'",
+      },
+    });
+  }
+  const user = User;
+  try{
+    user.findOneAndUpdate(
+      { _id: body.id },
+      { $set: {name: body.name, lastName: body.lastName, email: body.email, phone: body.phone} },
+      { new: true }
+    ).then((data) => {
+      res.status(201).send({ status: "OK", data: data});
+    }).catch((error) => error);
+
+  } catch (error) {
+    res
+      .status(error?.status || 500)
+      .send({ status: "FAILDED", data: { error: error?.message || error } });
+  }
+}
+
+const countUser = (req, res) => {
+  const { body } = req;
+  const user = User;
+  try{
+    user.find().countDocuments().then((data) => {
+      res.status(201).send({ status: "OK", data: data});
+    }).catch((error) => error);
+
+  } catch (error) {
+    res
+      .status(error?.status || 500)
+      .send({ status: "FAILDED", data: { error: error?.message || error } });
+  }
+}
+
+
+
+/*const kycSelfie = async (req, res) => {
+
+  const video = req.files.video;
+  const videoName = crypto.randomUUID()
+  video.mv(__dirname+"/../files/videos/"+videoName ,err => {
+    if(err) res.status(500).send({ message : err })
+  })
+  const filePath = __dirname+"/../files/videos/"+videoName
+    const canvas = createCanvas(640, 480);
+    const ctx = canvas.getContext('2d');
+
+    try {
+        const frames = await extractFrames(filePath);
+        const movementOrder = [];
+        const movements = { left: false, right: false, up: false, down: false };
+        const movementThreshold = 10;
+
+        for (let i = 0; i < frames.length; i++) {
+            const frame = frames[i];
+            const img = new Image();
+            img.src = frame;
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+            const predictions = await model.estimateFaces(canvas, false);
+
+            if (predictions.length > 0) {
+                const x = predictions[0].topLeft[0];
+                const y = predictions[0].topLeft[1];
+
+
+                if (movements.lastX !== undefined && movements.lastY !== undefined) {
+                  if (movements.lastX - x > movementThreshold && !movements.down) {
+                      movements.down = true;
+                      movementOrder.push('down');
+                  } else if (x - movements.lastX > movementThreshold && !movements.up) {
+                      movements.up = true;
+                      movementOrder.push('up');
+                  } else if (movements.lastY - y > movementThreshold && !movements.right) {
+                      movements.right = true;
+                      movementOrder.push('right');
+                  } else if (y - movements.lastY > movementThreshold && !movements.left) {
+                      movements.left = true;
+                      movementOrder.push('left');
+                  }
+              }
+
+              movements.lastX = x;
+              movements.lastY = y;
+
+              console.log(`Movements detected: ${movementOrder.join(', ')}`);
+
+              if (isOrderCorrect(movementOrder)) {
+                  fs.unlinkSync(filePath); // Eliminar el archivo temporal
+                  cleanUpFrames();
+                  return res.json({ message: '¡Rostro real detectado con movimientos!' });
+              }
+            }
+        }
+
+        fs.unlinkSync(filePath); // Eliminar el archivo temporal
+        res.json({ message: 'No se detectaron los movimientos necesarios.' });
+
+    } catch (error) {
+        console.error('Error procesando el video:', error);
+        fs.unlinkSync(filePath); // Eliminar el archivo temporal en caso de error
+        res.status(500).json({ message: 'Error procesando el video' });
+    }
+
+
+
+
+
+
+
+
+}
+async function extractFrames(filePath) {
+  console.log(filePath)
+  return new Promise((resolve, reject) => {
+      const frames = [];
+      const outputDir = path.join(__dirname, '../v1/routes/uploads/frames');
+      if (!fs.existsSync(outputDir)) {
+          fs.mkdirSync(outputDir);
+      }
+
+      ffmpeg(filePath)
+          .on('end', () => {
+              const files = fs.readdirSync(outputDir);
+              files.forEach(file => {
+                  frames.push(fs.readFileSync(path.join(outputDir, file)));
+              });
+              resolve(frames);
+          })
+          .on('error', (err) => {
+              reject(err);
+          })
+          .save(`${outputDir}/frame-%03d.png`);
+  });
+}
+
+function isOrderCorrect(movementOrder) {
+  const correctOrder = ['left', 'right', 'up', 'down'];
+  return correctOrder.every((movement, index) => movementOrder[index] === movement);
+}
+
+function cleanUpFrames() {
+  const outputDir = path.join(__dirname, '../v1/routes/uploads/frames');  // Crear ruta al directorio de frames
+  if (fs.existsSync(outputDir)) {
+      const files = fs.readdirSync(outputDir);
+      files.forEach(file => fs.unlinkSync(path.join(outputDir, file)));
+  }
+}*/
+const estadisCont = async (req, res) => {
+  try {
+    // Obtener la fecha actual
+    const currentDate = new Date();
+    // Para obtener los últimos 6 meses (incluyendo el mes actual), calculamos
+    // el primer día del mes que está 5 meses atrás.
+    const sixMonthsAgo = new Date(currentDate.getFullYear(), currentDate.getMonth() - 5, 1);
+    const user = User;
+    
+    // Pipeline de agregación:
+    const data = await user.aggregate([
+      // Filtrar solo los registros a partir de 'sixMonthsAgo'
+      { $match: { createdAt: { $gte: sixMonthsAgo } } },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } }
+    ]);
+
+    // Opcional: Construir arrays de 6 elementos para asegurar que se muestren todos los meses, incluso si alguno no tiene registros.
+    const monthNames = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                        "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+    
+    // Creamos un objeto para mapear "mes/año" al conteo
+    let resultMap = {};
+    data.forEach(item => {
+      // _id.month es de 1 a 12
+      let key = `${item._id.month}/${item._id.year}`;
+      resultMap[key] = item.count;
+    });
+    
+    // Creamos arrays para las etiquetas y los conteos para los últimos 6 meses
+    let labels = [];
+    let counts = [];
+    // Iteramos desde el mes de 'sixMonthsAgo' hasta el mes actual (6 meses)
+    let dateIter = new Date(sixMonthsAgo);
+    for (let i = 0; i < 6; i++) {
+      const month = dateIter.getMonth(); // 0-indexado
+      const year = dateIter.getFullYear();
+      // Construir la etiqueta, por ejemplo: "March 2023"
+      labels.push(`${monthNames[month]} ${year}`);
+      // La clave en resultMap se usa en formato "mes/año" (mes en 1-indexado)
+      const key = `${month + 1}/${year}`;
+      counts.push(resultMap[key] || 0);
+      dateIter.setMonth(dateIter.getMonth() + 1);
+    }
+    
+    res.json({ labels, counts });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+
+}
+
+const soliCodEmail = (req, res) => {
+  const { body } = req;
+  
+  if (
+    !body.id
+  ){
+    res.status(400).send({
+      status: "FAILED",
+      data: {
+        error:
+          "One of the following keys is missing or is empty in request body: 'id'",
+      },
+    });
+  }
+  try {
+    console.log("Bien")
+    const num = Math.floor((Math.random() * (9999 - 1000 + 1)) + 1000)
+    const user = User;
+    user.findOneAndUpdate(
+      { _id: body.id },
+      { $set: {emailCode: num} },
+      { new: true }
+    ).then((data) => {
+
+      const transporter = nodemailer.createTransport({
+        host: process.env.MAIL_HOST,
+        port: process.env.MAIL_PORT,
+        auth: {
+          user: process.env.MAIL_USERNAME,
+          pass: process.env.MAIL_PASSWORD,
+        }
+      });
+      const mailOptions = {
+        from: process.env.EMAL_TO,
+        to: data.email,
+        subject: 'Verificar correo COMEXPAY',
+
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #dddddd; border-radius: 10px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+            <img src="https://api.comexpay.co/recursos/logo.png" alt="COMEXPAY" style="max-width: 150px;">
+
+            <svg id="imagen2" width="100%" height="39" viewBox="0 0 194 39" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M15.2114 19.0587C16.5447 19.7601 17.1061 20.1306 17.0564 22.4368L17.0572 37.0268C17.0439 37.8529 16.4657 39.0921 15.1146 38.3429L1.22916 30.4539C0.279284 29.8591 -0.0280623 28.9828 0.00198019 28.4169L0.0809401 12.1617C0.0438195 11.7598 0.719697 10.7546 1.93131 11.4933L15.2115 19.0589L15.2114 19.0587Z" fill="#742ACE"></path>
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M20.6889 19.4845C19.3555 20.1859 18.7941 20.5562 18.8438 22.8626L18.8431 37.4525C18.8563 38.2787 19.4345 39.5178 20.7856 38.7687L34.6711 30.8797C35.6209 30.2849 35.9283 29.4085 35.8982 28.8427L35.8193 12.5875C35.8564 12.1856 35.1805 11.1804 33.9689 11.9191L20.6887 19.4847L20.6889 19.4845Z" fill="#742ACE"></path>
+              <path fill-rule="evenodd" clip-rule="evenodd" d="M19.8967 0.687284C18.6134 -0.0994845 18.0072 -0.39309 16.0044 0.802402L3.17675 8.09667C2.45714 8.52104 1.65669 9.63379 2.99083 10.412L16.8697 18.3126C17.8675 18.8256 18.7916 18.6496 19.274 18.3411L33.526 10.1462C33.8978 9.97698 34.4439 8.89769 33.1886 8.23348L19.8969 0.687284H19.8967Z" fill="#742ACE"></path>
+              <mask id="path-4-inside-1_737_1627" fill="white">
+              <path d="M55.4097 17.7974C55.1157 16.5532 54.4902 15.5962 53.5332 14.9263C52.5762 14.2495 51.3628 13.9111 49.8931 13.9111C47.9038 13.9111 46.3384 14.4922 45.1968 15.6543C44.0552 16.8096 43.4844 18.3989 43.4844 20.4224C43.4844 22.3979 44.0381 23.9736 45.1455 25.1494C46.2529 26.3252 47.7363 26.9131 49.5957 26.9131C51.127 26.9131 52.4292 26.4995 53.5024 25.6724C54.5825 24.8384 55.2764 23.7173 55.584 22.3091H57.1938C56.8452 24.1821 55.9941 25.6655 54.6406 26.7593C53.2871 27.853 51.6191 28.3999 49.6367 28.3999C47.3057 28.3999 45.4395 27.6753 44.0381 26.2261C42.6436 24.7769 41.9463 22.8423 41.9463 20.4224C41.9463 17.9409 42.6538 15.9893 44.0688 14.5674C45.4839 13.1455 47.4321 12.4346 49.9136 12.4346C51.8687 12.4346 53.4683 12.9097 54.7124 13.8599C55.9565 14.8101 56.7017 16.1226 56.9478 17.7974H55.4097ZM74.9126 20.4224C74.9126 22.897 74.2017 24.8452 72.7798 26.2671C71.3579 27.689 69.4097 28.3999 66.9351 28.3999C64.4536 28.3999 62.5054 27.689 61.0903 26.2671C59.6753 24.8452 58.9678 22.897 58.9678 20.4224C58.9678 17.9409 59.6753 15.9893 61.0903 14.5674C62.5054 13.1455 64.4536 12.4346 66.9351 12.4346C69.4097 12.4346 71.3579 13.1455 72.7798 14.5674C74.2017 15.9893 74.9126 17.9409 74.9126 20.4224ZM66.9351 26.9336C68.938 26.9336 70.5068 26.356 71.6416 25.2007C72.7832 24.0454 73.354 22.4526 73.354 20.4224C73.354 18.3853 72.7832 16.7925 71.6416 15.644C70.5068 14.4888 68.938 13.9111 66.9351 13.9111C64.9253 13.9111 63.3496 14.4888 62.208 15.644C61.0732 16.7925 60.5059 18.3853 60.5059 20.4224C60.5059 22.4526 61.0732 24.0454 62.208 25.2007C63.3496 26.356 64.9253 26.9336 66.9351 26.9336ZM77.7734 28V12.8345H80.1934L86.5918 26.5952L93.0825 12.8345H95.3076V28H93.8208L93.8823 14.1367L87.4531 28H85.71L79.1167 14.1367L79.2705 28H77.7734ZM98.8965 28V12.8345H110.555V14.2495H100.414V19.561H109.776V20.9863H100.414V26.5747H110.555V28H98.8965ZM111.693 28L117.917 20.207L112.134 12.8345H114.072L118.922 19.1816L123.793 12.8345H125.68L119.784 20.1865L125.977 28H123.998L118.861 21.2427L113.672 28H111.693ZM129.433 20.3096H133.821C135.428 20.3096 136.539 20.084 137.154 19.6328C137.769 19.1816 138.077 18.4023 138.077 17.2949C138.077 16.1738 137.766 15.3877 137.144 14.9365C136.528 14.4785 135.421 14.2495 133.821 14.2495H129.433V20.3096ZM127.915 28V12.8345H134.088C135.981 12.8345 137.386 13.2036 138.302 13.9419C139.218 14.6733 139.676 15.7979 139.676 17.3154C139.676 18.8262 139.218 19.9507 138.302 20.689C137.386 21.4204 135.981 21.7861 134.088 21.7861H129.433V28H127.915ZM143.275 21.8477H150.228L146.762 14.0957L143.275 21.8477ZM138.907 28L145.9 12.8345H147.644L154.555 28H153.027L150.904 23.314H142.609L140.466 28H138.907ZM160.01 28V21.4478L153.478 12.8345H155.406L160.758 20.2275L166.183 12.8345H168.049L161.517 21.4478V28H160.01Z"></path>
+              </mask>
+              <path d="M55.4097 17.7974C55.1157 16.5532 54.4902 15.5962 53.5332 14.9263C52.5762 14.2495 51.3628 13.9111 49.8931 13.9111C47.9038 13.9111 46.3384 14.4922 45.1968 15.6543C44.0552 16.8096 43.4844 18.3989 43.4844 20.4224C43.4844 22.3979 44.0381 23.9736 45.1455 25.1494C46.2529 26.3252 47.7363 26.9131 49.5957 26.9131C51.127 26.9131 52.4292 26.4995 53.5024 25.6724C54.5825 24.8384 55.2764 23.7173 55.584 22.3091H57.1938C56.8452 24.1821 55.9941 25.6655 54.6406 26.7593C53.2871 27.853 51.6191 28.3999 49.6367 28.3999C47.3057 28.3999 45.4395 27.6753 44.0381 26.2261C42.6436 24.7769 41.9463 22.8423 41.9463 20.4224C41.9463 17.9409 42.6538 15.9893 44.0688 14.5674C45.4839 13.1455 47.4321 12.4346 49.9136 12.4346C51.8687 12.4346 53.4683 12.9097 54.7124 13.8599C55.9565 14.8101 56.7017 16.1226 56.9478 17.7974H55.4097ZM74.9126 20.4224C74.9126 22.897 74.2017 24.8452 72.7798 26.2671C71.3579 27.689 69.4097 28.3999 66.9351 28.3999C64.4536 28.3999 62.5054 27.689 61.0903 26.2671C59.6753 24.8452 58.9678 22.897 58.9678 20.4224C58.9678 17.9409 59.6753 15.9893 61.0903 14.5674C62.5054 13.1455 64.4536 12.4346 66.9351 12.4346C69.4097 12.4346 71.3579 13.1455 72.7798 14.5674C74.2017 15.9893 74.9126 17.9409 74.9126 20.4224ZM66.9351 26.9336C68.938 26.9336 70.5068 26.356 71.6416 25.2007C72.7832 24.0454 73.354 22.4526 73.354 20.4224C73.354 18.3853 72.7832 16.7925 71.6416 15.644C70.5068 14.4888 68.938 13.9111 66.9351 13.9111C64.9253 13.9111 63.3496 14.4888 62.208 15.644C61.0732 16.7925 60.5059 18.3853 60.5059 20.4224C60.5059 22.4526 61.0732 24.0454 62.208 25.2007C63.3496 26.356 64.9253 26.9336 66.9351 26.9336ZM77.7734 28V12.8345H80.1934L86.5918 26.5952L93.0825 12.8345H95.3076V28H93.8208L93.8823 14.1367L87.4531 28H85.71L79.1167 14.1367L79.2705 28H77.7734ZM98.8965 28V12.8345H110.555V14.2495H100.414V19.561H109.776V20.9863H100.414V26.5747H110.555V28H98.8965ZM111.693 28L117.917 20.207L112.134 12.8345H114.072L118.922 19.1816L123.793 12.8345H125.68L119.784 20.1865L125.977 28H123.998L118.861 21.2427L113.672 28H111.693ZM129.433 20.3096H133.821C135.428 20.3096 136.539 20.084 137.154 19.6328C137.769 19.1816 138.077 18.4023 138.077 17.2949C138.077 16.1738 137.766 15.3877 137.144 14.9365C136.528 14.4785 135.421 14.2495 133.821 14.2495H129.433V20.3096ZM127.915 28V12.8345H134.088C135.981 12.8345 137.386 13.2036 138.302 13.9419C139.218 14.6733 139.676 15.7979 139.676 17.3154C139.676 18.8262 139.218 19.9507 138.302 20.689C137.386 21.4204 135.981 21.7861 134.088 21.7861H129.433V28H127.915ZM143.275 21.8477H150.228L146.762 14.0957L143.275 21.8477ZM138.907 28L145.9 12.8345H147.644L154.555 28H153.027L150.904 23.314H142.609L140.466 28H138.907ZM160.01 28V21.4478L153.478 12.8345H155.406L160.758 20.2275L166.183 12.8345H168.049L161.517 21.4478V28H160.01Z" fill="#742ACE"></path>
+              <path d="M55.4097 17.7974L54.4365 18.0273L54.6184 18.7974H55.4097V17.7974ZM53.5332 14.9263L52.9558 15.7428L52.9597 15.7455L53.5332 14.9263ZM45.1968 15.6543L45.9081 16.3572L45.9102 16.3551L45.1968 15.6543ZM53.5024 25.6724L54.1129 26.4644L54.1136 26.4639L53.5024 25.6724ZM55.584 22.3091V21.3091H54.7788L54.607 22.0957L55.584 22.3091ZM57.1938 22.3091L58.177 22.4921L58.3972 21.3091H57.1938V22.3091ZM44.0381 26.2261L43.3175 26.9195L43.3192 26.9212L44.0381 26.2261ZM56.9478 17.7974V18.7974H58.1054L57.9371 17.652L56.9478 17.7974ZM56.3829 17.5674C56.0383 16.1088 55.2843 14.9314 54.1067 14.107L52.9597 15.7455C53.6961 16.261 54.1932 16.9976 54.4365 18.0273L56.3829 17.5674ZM54.1106 14.1098C52.9461 13.2864 51.5167 12.9111 49.8931 12.9111V14.9111C51.2089 14.9111 52.2062 15.2127 52.9558 15.7428L54.1106 14.1098ZM49.8931 12.9111C47.6988 12.9111 45.8532 13.5591 44.4834 14.9535L45.9102 16.3551C46.8236 15.4253 48.1088 14.9111 49.8931 14.9111V12.9111ZM44.4855 14.9514C43.1159 16.3374 42.4844 18.2041 42.4844 20.4224H44.4844C44.4844 18.5938 44.9945 17.2817 45.9081 16.3572L44.4855 14.9514ZM42.4844 20.4224C42.4844 22.5929 43.0982 24.4343 44.4176 25.835L45.8735 24.4638C44.9779 23.513 44.4844 22.203 44.4844 20.4224H42.4844ZM44.4176 25.835C45.7431 27.2424 47.5063 27.9131 49.5957 27.9131V25.9131C47.9663 25.9131 46.7628 25.408 45.8735 24.4638L44.4176 25.835ZM49.5957 27.9131C51.3176 27.9131 52.8422 27.4437 54.1129 26.4644L52.892 24.8803C52.0162 25.5553 50.9363 25.9131 49.5957 25.9131V27.9131ZM54.1136 26.4639C55.3908 25.4777 56.2062 24.1464 56.5609 22.5225L54.607 22.0957C54.3465 23.2882 53.7742 24.1991 52.8913 24.8809L54.1136 26.4639ZM55.584 23.3091H57.1938V21.3091H55.584V23.3091ZM56.2107 22.1261C55.9012 23.7888 55.1623 25.052 54.0121 25.9815L55.2691 27.5371C56.826 26.279 57.7892 24.5754 58.177 22.4921L56.2107 22.1261ZM54.0121 25.9815C52.861 26.9117 51.424 27.3999 49.6367 27.3999V29.3999C51.8143 29.3999 53.7132 28.7944 55.2691 27.5371L54.0121 25.9815ZM49.6367 27.3999C47.5306 27.3999 45.9401 26.7545 44.757 25.5309L43.3192 26.9212C44.9388 28.5961 47.0807 29.3999 49.6367 29.3999V27.3999ZM44.7587 25.5327C43.5787 24.3065 42.9463 22.6396 42.9463 20.4224H40.9463C40.9463 23.045 41.7084 25.2472 43.3175 26.9195L44.7587 25.5327ZM42.9463 20.4224C42.9463 18.1389 43.5912 16.465 44.7777 15.2728L43.36 13.862C41.7164 15.5136 40.9463 17.7429 40.9463 20.4224H42.9463ZM44.7777 15.2728C45.9626 14.0821 47.6313 13.4346 49.9136 13.4346V11.4346C47.233 11.4346 45.0052 12.2089 43.36 13.862L44.7777 15.2728ZM49.9136 13.4346C51.7048 13.4346 53.0751 13.8677 54.1054 14.6546L55.3194 13.0651C53.8614 11.9516 52.0325 11.4346 49.9136 11.4346V13.4346ZM54.1054 14.6546C55.1245 15.4329 55.7468 16.5029 55.9584 17.9427L57.9371 17.652C57.6565 15.7422 56.7886 14.1872 55.3194 13.0651L54.1054 14.6546ZM56.9478 16.7974H55.4097V18.7974H56.9478V16.7974ZM71.6416 25.2007L70.9303 24.4978L70.9282 24.4999L71.6416 25.2007ZM71.6416 15.644L70.9282 16.3448L70.9324 16.349L71.6416 15.644ZM62.208 15.644L61.4967 14.9412L61.4967 14.9412L62.208 15.644ZM62.208 25.2007L61.4946 25.9014L61.4967 25.9036L62.208 25.2007ZM73.9126 20.4224C73.9126 22.6967 73.2656 24.3671 72.0727 25.56L73.4869 26.9742C75.1377 25.3234 75.9126 23.0972 75.9126 20.4224H73.9126ZM72.0727 25.56C70.8797 26.7529 69.2094 27.3999 66.9351 27.3999V29.3999C69.6099 29.3999 71.8361 28.625 73.4869 26.9742L72.0727 25.56ZM66.9351 27.3999C64.6528 27.3999 62.9841 26.7523 61.7991 25.5617L60.3815 26.9725C62.0267 28.6256 64.2544 29.3999 66.9351 29.3999V27.3999ZM61.7991 25.5617C60.6122 24.369 59.9678 22.6981 59.9678 20.4224H57.9678C57.9678 23.0959 58.7384 25.3214 60.3815 26.9725L61.7991 25.5617ZM59.9678 20.4224C59.9678 18.1389 60.6127 16.465 61.7991 15.2728L60.3815 13.862C58.7379 15.5136 57.9678 17.7429 57.9678 20.4224H59.9678ZM61.7991 15.2728C62.9841 14.0821 64.6528 13.4346 66.9351 13.4346V11.4346C64.2544 11.4346 62.0267 12.2089 60.3815 13.862L61.7991 15.2728ZM66.9351 13.4346C69.2094 13.4346 70.8797 14.0816 72.0727 15.2745L73.4869 13.8603C71.8361 12.2095 69.6099 11.4346 66.9351 11.4346V13.4346ZM72.0727 15.2745C73.2651 16.4669 73.9126 18.1403 73.9126 20.4224H75.9126C75.9126 17.7415 75.1382 15.5116 73.4869 13.8603L72.0727 15.2745ZM66.9351 27.9336C69.1388 27.9336 70.9896 27.2915 72.355 25.9014L70.9282 24.4999C70.024 25.4204 68.7372 25.9336 66.9351 25.9336V27.9336ZM72.3529 25.9036C73.7231 24.517 74.354 22.6464 74.354 20.4224H72.354C72.354 22.2589 71.8433 23.5739 70.9303 24.4978L72.3529 25.9036ZM74.354 20.4224C74.354 18.1928 73.7238 16.3203 72.3508 14.9391L70.9324 16.349C71.8426 17.2647 72.354 18.5777 72.354 20.4224H74.354ZM72.355 14.9433C70.9896 13.5533 69.1388 12.9111 66.9351 12.9111V14.9111C68.7372 14.9111 70.024 15.4243 70.9282 16.3448L72.355 14.9433ZM66.9351 12.9111C64.7254 12.9111 62.8688 13.5527 61.4967 14.9412L62.9193 16.3469C63.8305 15.4249 65.1252 14.9111 66.9351 14.9111V12.9111ZM61.4967 14.9412C60.1316 16.3227 59.5059 18.1945 59.5059 20.4224H61.5059C61.5059 18.576 62.0148 17.2623 62.9193 16.3469L61.4967 14.9412ZM59.5059 20.4224C59.5059 22.6448 60.1323 24.5145 61.4946 25.9014L62.9214 24.4999C62.0141 23.5763 61.5059 22.2605 61.5059 20.4224H59.5059ZM61.4967 25.9036C62.8688 27.2921 64.7254 27.9336 66.9351 27.9336V25.9336C65.1252 25.9336 63.8305 25.4199 62.9193 24.4978L61.4967 25.9036ZM77.7734 28H76.7734V29H77.7734V28ZM77.7734 12.8345V11.8345H76.7734V12.8345H77.7734ZM80.1934 12.8345L81.1001 12.4128L80.8312 11.8345H80.1934V12.8345ZM86.5918 26.5952L85.685 27.0168L86.5853 28.953L87.4962 27.0218L86.5918 26.5952ZM93.0825 12.8345V11.8345H92.4485L92.1781 12.4079L93.0825 12.8345ZM95.3076 12.8345H96.3076V11.8345H95.3076V12.8345ZM95.3076 28V29H96.3076V28H95.3076ZM93.8208 28L92.8208 27.9956L92.8164 29H93.8208V28ZM93.8823 14.1367L94.8823 14.1412L92.9751 13.716L93.8823 14.1367ZM87.4531 28V29H88.0917L88.3603 28.4207L87.4531 28ZM85.71 28L84.8069 28.4295L85.0782 29H85.71V28ZM79.1167 14.1367L80.0198 13.7072L78.1168 14.1478L79.1167 14.1367ZM79.2705 28V29H80.2817L80.2704 27.9889L79.2705 28ZM78.7734 28V12.8345H76.7734V28H78.7734ZM77.7734 13.8345H80.1934V11.8345H77.7734V13.8345ZM79.2866 13.2561L85.685 27.0168L87.4986 26.1736L81.1001 12.4128L79.2866 13.2561ZM87.4962 27.0218L93.987 13.2611L92.1781 12.4079L85.6874 26.1686L87.4962 27.0218ZM93.0825 13.8345H95.3076V11.8345H93.0825V13.8345ZM94.3076 12.8345V28H96.3076V12.8345H94.3076ZM95.3076 27H93.8208V29H95.3076V27ZM94.8208 28.0044L94.8823 14.1412L92.8823 14.1323L92.8208 27.9956L94.8208 28.0044ZM92.9751 13.716L86.5459 27.5793L88.3603 28.4207L94.7895 14.5574L92.9751 13.716ZM87.4531 27H85.71V29H87.4531V27ZM86.613 27.5705L80.0198 13.7072L78.2136 14.5662L84.8069 28.4295L86.613 27.5705ZM78.1168 14.1478L78.2706 28.0111L80.2704 27.9889L80.1166 14.1256L78.1168 14.1478ZM79.2705 27H77.7734V29H79.2705V27ZM98.8965 28H97.8965V29H98.8965V28ZM98.8965 12.8345V11.8345H97.8965V12.8345H98.8965ZM110.555 12.8345H111.555V11.8345H110.555V12.8345ZM110.555 14.2495V15.2495H111.555V14.2495H110.555ZM100.414 14.2495V13.2495H99.4141V14.2495H100.414ZM100.414 19.561H99.4141V20.561H100.414V19.561ZM109.776 19.561H110.776V18.561H109.776V19.561ZM109.776 20.9863V21.9863H110.776V20.9863H109.776ZM100.414 20.9863V19.9863H99.4141V20.9863H100.414ZM100.414 26.5747H99.4141V27.5747H100.414V26.5747ZM110.555 26.5747H111.555V25.5747H110.555V26.5747ZM110.555 28V29H111.555V28H110.555ZM99.8965 28V12.8345H97.8965V28H99.8965ZM98.8965 13.8345H110.555V11.8345H98.8965V13.8345ZM109.555 12.8345V14.2495H111.555V12.8345H109.555ZM110.555 13.2495H100.414V15.2495H110.555V13.2495ZM99.4141 14.2495V19.561H101.414V14.2495H99.4141ZM100.414 20.561H109.776V18.561H100.414V20.561ZM108.776 19.561V20.9863H110.776V19.561H108.776ZM109.776 19.9863H100.414V21.9863H109.776V19.9863ZM99.4141 20.9863V26.5747H101.414V20.9863H99.4141ZM100.414 27.5747H110.555V25.5747H100.414V27.5747ZM109.555 26.5747V28H111.555V26.5747H109.555ZM110.555 27H98.8965V29H110.555V27ZM111.693 28L110.912 27.3759L109.615 29H111.693V28ZM117.917 20.207L118.699 20.8311L119.193 20.2126L118.704 19.5898L117.917 20.207ZM112.134 12.8345V11.8345H110.079L111.347 13.4517L112.134 12.8345ZM114.072 12.8345L114.867 12.2273L114.567 11.8345H114.072V12.8345ZM118.922 19.1816L118.128 19.7888L118.921 20.8264L119.716 19.7904L118.922 19.1816ZM123.793 12.8345V11.8345H123.3L123 12.2257L123.793 12.8345ZM125.68 12.8345L126.46 13.4601L127.763 11.8345H125.68V12.8345ZM119.784 20.1865L119.004 19.5609L118.505 20.1829L119 20.8077L119.784 20.1865ZM125.977 28V29H128.046L126.761 27.3788L125.977 28ZM123.998 28L123.202 28.6052L123.502 29H123.998V28ZM118.861 21.2427L119.657 20.6375L118.865 19.5955L118.068 20.6337L118.861 21.2427ZM113.672 28V29H114.165L114.466 28.609L113.672 28ZM112.475 28.6241L118.699 20.8311L117.136 19.583L110.912 27.3759L112.475 28.6241ZM118.704 19.5898L112.921 12.2173L111.347 13.4517L117.131 20.8242L118.704 19.5898ZM112.134 13.8345H114.072V11.8345H112.134V13.8345ZM113.278 13.4416L118.128 19.7888L119.717 18.5745L114.867 12.2273L113.278 13.4416ZM119.716 19.7904L124.586 13.4433L123 12.2257L118.129 18.5729L119.716 19.7904ZM123.793 13.8345H125.68V11.8345H123.793V13.8345ZM124.9 12.2088L119.004 19.5609L120.564 20.8121L126.46 13.4601L124.9 12.2088ZM119 20.8077L125.193 28.6212L126.761 27.3788L120.567 19.5653L119 20.8077ZM125.977 27H123.998V29H125.977V27ZM124.794 27.3948L119.657 20.6375L118.065 21.8479L123.202 28.6052L124.794 27.3948ZM118.068 20.6337L112.879 27.391L114.466 28.609L119.654 21.8517L118.068 20.6337ZM113.672 27H111.693V29H113.672V27ZM129.433 20.3096H128.433V21.3096H129.433V20.3096ZM137.144 14.9365L136.546 15.7387L136.556 15.746L137.144 14.9365ZM129.433 14.2495V13.2495H128.433V14.2495H129.433ZM127.915 28H126.915V29H127.915V28ZM127.915 12.8345V11.8345H126.915V12.8345H127.915ZM138.302 13.9419L137.675 14.7205L137.678 14.7233L138.302 13.9419ZM138.302 20.689L138.926 21.4704L138.93 21.4676L138.302 20.689ZM129.433 21.7861V20.7861H128.433V21.7861H129.433ZM129.433 28V29H130.433V28H129.433ZM129.433 21.3096H133.821V19.3096H129.433V21.3096ZM133.821 21.3096C135.449 21.3096 136.851 21.0952 137.745 20.4392L136.562 18.8264C136.226 19.0728 135.406 19.3096 133.821 19.3096V21.3096ZM137.745 20.4392C138.719 19.7251 139.077 18.5692 139.077 17.2949H137.077C137.077 18.2355 136.819 18.6382 136.562 18.8264L137.745 20.4392ZM139.077 17.2949C139.077 16.0085 138.716 14.8418 137.731 14.127L136.556 15.746C136.815 15.9336 137.077 16.3392 137.077 17.2949H139.077ZM137.741 14.1344C136.845 13.4678 135.445 13.2495 133.821 13.2495V15.2495C135.397 15.2495 136.211 15.4892 136.546 15.7387L137.741 14.1344ZM133.821 13.2495H129.433V15.2495H133.821V13.2495ZM128.433 14.2495V20.3096H130.433V14.2495H128.433ZM128.915 28V12.8345H126.915V28H128.915ZM127.915 13.8345H134.088V11.8345H127.915V13.8345ZM134.088 13.8345C135.883 13.8345 137.016 14.1899 137.675 14.7205L138.93 13.1633C137.756 12.2174 136.08 11.8345 134.088 11.8345V13.8345ZM137.678 14.7233C138.29 15.2117 138.676 16.0049 138.676 17.3154H140.676C140.676 15.5908 140.147 14.1349 138.926 13.1605L137.678 14.7233ZM138.676 17.3154C138.676 18.6169 138.291 19.4136 137.675 19.9104L138.93 21.4676C140.145 20.4878 140.676 19.0354 140.676 17.3154H138.676ZM137.678 19.9075C137.019 20.4336 135.884 20.7861 134.088 20.7861V22.7861C136.079 22.7861 137.753 22.4072 138.926 21.4704L137.678 19.9075ZM134.088 20.7861H129.433V22.7861H134.088V20.7861ZM128.433 21.7861V28H130.433V21.7861H128.433ZM129.433 27H127.915V29H129.433V27ZM143.275 21.8477L142.363 21.4375L141.729 22.8477H143.275V21.8477ZM150.228 21.8477V22.8477H151.77L151.14 21.4395L150.228 21.8477ZM146.762 14.0957L147.675 13.6875L146.764 11.6517L145.85 13.6855L146.762 14.0957ZM138.907 28L137.999 27.5813L137.345 29H138.907V28ZM145.9 12.8345V11.8345H145.26L144.992 12.4157L145.9 12.8345ZM147.644 12.8345L148.554 12.4198L148.287 11.8345H147.644V12.8345ZM154.555 28V29H156.109L155.465 27.5853L154.555 28ZM153.027 28L152.116 28.4126L152.382 29H153.027V28ZM150.904 23.314L151.815 22.9014L151.549 22.314H150.904V23.314ZM142.609 23.314V22.314H141.967L141.699 22.8981L142.609 23.314ZM140.466 28V29H141.108L141.375 28.4159L140.466 28ZM143.275 22.8477H150.228V20.8477H143.275V22.8477ZM151.14 21.4395L147.675 13.6875L145.849 14.5039L149.315 22.2558L151.14 21.4395ZM145.85 13.6855L142.363 21.4375L144.187 22.2578L147.674 14.5059L145.85 13.6855ZM139.815 28.4187L146.808 13.2532L144.992 12.4157L137.999 27.5813L139.815 28.4187ZM145.9 13.8345H147.644V11.8345H145.9V13.8345ZM146.734 13.2492L153.645 28.4147L155.465 27.5853L148.554 12.4198L146.734 13.2492ZM154.555 27H153.027V29H154.555V27ZM153.938 27.5874L151.815 22.9014L149.993 23.7266L152.116 28.4126L153.938 27.5874ZM150.904 22.314H142.609V24.314H150.904V22.314ZM141.699 22.8981L139.556 27.5841L141.375 28.4159L143.518 23.7299L141.699 22.8981ZM140.466 27H138.907V29H140.466V27ZM160.01 28H159.01V29H160.01V28ZM160.01 21.4478H161.01V21.1115L160.807 20.8435L160.01 21.4478ZM153.478 12.8345V11.8345H151.465L152.681 13.4387L153.478 12.8345ZM155.406 12.8345L156.216 12.248L155.916 11.8345H155.406V12.8345ZM160.758 20.2275L159.948 20.814L160.753 21.9253L161.565 20.8191L160.758 20.2275ZM166.183 12.8345V11.8345H165.676L165.376 12.2429L166.183 12.8345ZM168.049 12.8345L168.846 13.4387L170.062 11.8345H168.049V12.8345ZM161.517 21.4478L160.72 20.8435L160.517 21.1115V21.4478H161.517ZM161.517 28V29H162.517V28H161.517ZM161.01 28V21.4478H159.01V28H161.01ZM160.807 20.8435L154.275 12.2302L152.681 13.4387L159.213 22.052L160.807 20.8435ZM153.478 13.8345H155.406V11.8345H153.478V13.8345ZM154.596 13.4209L159.948 20.814L161.568 19.6411L156.216 12.248L154.596 13.4209ZM161.565 20.8191L166.989 13.426L165.376 12.2429L159.952 19.636L161.565 20.8191ZM166.183 13.8345H168.049V11.8345H166.183V13.8345ZM167.252 12.2302L160.72 20.8435L162.314 22.052L168.846 13.4387L167.252 12.2302ZM160.517 21.4478V28H162.517V21.4478H160.517ZM161.517 27H160.01V29H161.517V27Z" fill="#742ACE" mask="url(#path-4-inside-1_737_1627)"></path>
+            </svg>
+            </div>
+            <p style="color: #555555;">Hola! `+data.name+`</p>
+            <p style="color: #555555;">Bienvenido al ecosistema COMEXPAY, donde Revolucionamos los pagos en operaciones de comercio exterior, facilitando un océano de soluciones para tus negocios internacionales. Aquí esta tu código de verificación:</p>
+            <h2 style="color: #555555;">`+data.emailCode+`</h2>
+
+
+            <p style="color: #555555;">si requieres soporte ponte en contacto con nosotros por medio de nuestro <a href="https://comexpay.co" style="color:rgb(119, 0, 155);"> chat.</a></p>
+          </div>
+        `
+      };
+      res.status(200).send({ status: "OK", data: 0 });
+
+      transporter.sendMail(mailOptions, function(err, data) {
+        if (err) {
+          console.log("Error " + err);
+        } else {
+          console.log("Email sent successfully");
+        }
+      });
+
+    })
+    } catch (error) {
+      res
+        .status(error?.status || 500)
+        .send({ status: "FAILDED", data: { error: error?.message || error } });
+    }
+}
+
+const soliCodCel = (req, res) => {
+  const { body } = req;
+  
+  if (
+    !body.id
+  ){
+    res.status(400).send({
+      status: "FAILED",
+      data: {
+        error:
+          "One of the following keys is missing or is empty in request body: 'id'",
+      },
+    });
+  }
+  try {
+      console.log("Bien")
+      const num = Math.floor((Math.random() * (9999 - 1000 + 1)) + 1000)
+      const user = User;
+      user.findOneAndUpdate(
+        { _id: body.id },
+        { $set: {phoneCode: num} },
+        { new: true }
+      ).then((data) => {
+
+        let phone = data.phone.replace(/\s+/g, "");
+
+        const url = 'http://api.labsmobile.com/get/send.php?username=info@globalcoins.co&password=cs692gnMUCcXxQYWPDWnbKbF957uzqqC&msisdn=+57' + phone + '&message=Tu código de confirmación Comexpay es: ' + num
+        axios.get(url)
+        .then((response) => {
+          console.log(response)
+          res.status(200).send({ status: "OK", data: 0 });
+        })
+        .catch((error) => {
+          console.log("error")
+        });
+      })
+    } catch (error) {
+      res
+        .status(error?.status || 500)
+        .send({ status: "FAILDED", data: { error: error?.message || error } });
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+module.exports = {
+    createNewUser,
+    getuser,
+    veriNumero,
+    veriEmail,
+    getuserById,
+    actualizarPass,
+    recuperar,
+    cambiarContra,
+    getuserAll,
+    editUser,
+    countUser,
+    estadisCont,
+    soliCodEmail,
+    soliCodCel
+    //kycSelfie
+};

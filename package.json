@@ -1,0 +1,46 @@
+{
+  "name": "crossfit-wod-api",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node ./src/index.js",
+    "dev": "nodemon ./src/index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Carlos Azaustre <cazaustre@gmail.com> (https://youtube.com/carlosazaustre)",
+  "license": "MIT",
+  "devDependencies": {
+    "nodemon": "^3.1.3"
+  },
+  "dependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@tensorflow-models/blazeface": "^0.1.0",
+    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs-node": "^4.22.0",
+    "apicache": "^1.6.3",
+    "aws-sdk": "^2.1692.0",
+    "axios": "^1.7.7",
+    "body-parser": "^1.20.2",
+    "canvas": "^2.11.2",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "exifr": "^7.1.3",
+    "express": "^4.18.1",
+    "express-fileupload": "^1.5.1",
+    "fluent-ffmpeg": "^2.1.3",
+    "fuse.js": "^7.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.4.1",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.15",
+    "sharp": "^0.33.5",
+    "swagger-jsdoc": "^6.2.5",
+    "swagger-ui-express": "^4.5.0",
+    "tesseract.js": "^5.1.1",
+    "uuid": "^8.3.2",
+    "validator": "^13.12.0"
+  }
+}
